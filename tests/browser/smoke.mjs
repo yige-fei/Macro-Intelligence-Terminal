@@ -616,6 +616,162 @@ try {
     && l0["BLS.CPI.2026-09"].text === "" && l1["BLS.CPI.2026-09"].text !== "",
     { f0, f1, f2, fR: { items: fR.items }, panes0, panes1, cpiLabel: [l0["BLS.CPI.2026-09"], l1["BLS.CPI.2026-09"]], savedSame: [savedDuring === savedBefore, savedAfter === savedBefore] });
   await page.viewport(1440, 790); await sleep(600);
+  // ---------------------------------------------------------------- AN-1: price analytics (fictional fixtures, independent oracle)
+  const ANFIX = join(REPO, "tests", "fixtures", "analytics");
+  const ANEXP = json(join(ANFIX, "expected.json")); // recomputed by tests/test_analytics_oracle.py, without the app's code
+  const pct = (x, sign = true) => { const b = Math.abs(x * 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return b === "0.00" ? "0.00%" : (x < 0 ? "−" : sign ? "+" : "") + b + "%"; };
+  /** Same statistics from raw rows, written separately from web/lib/analytics.ts. */
+  const anOracle = (rows) => {
+    const c = rows.map((r) => r.close), ret = c.slice(1).map((x, i) => x / c[i] - 1);
+    const mean = ret.reduce((s, x) => s + x, 0) / ret.length;
+    let top = c[0], dd = 0;
+    for (const x of c) { top = Math.max(top, x); dd = Math.min(dd, x / top - 1); }
+    return { observations: rows.length, first: rows[0].date, last: rows.at(-1).date, return_count: ret.length, cumulative: c.at(-1) / c[0] - 1,
+      stdev: ret.length >= 20 ? Math.sqrt(ret.reduce((s, x) => s + (x - mean) ** 2, 0) / (ret.length - 1)) : null, ddValue: dd };
+  };
+  const anRead = () => page.evaluate(`(() => { const p = document.querySelector('[data-testid="analytics-panel"]'); if (!p) return null;
+    const g = (id) => p.querySelector('[data-testid="analytics-' + id + '"]')?.innerText ?? null;
+    return { source: p.dataset.source, status: p.dataset.status, open: p.open, summary: g("summary"), observations: g("observations"), first: g("first"), last: g("last"), returns: g("returns"), cumulative: g("cumulative"),
+      stdev: g("stdev"), drawdown: g("drawdown"), sample: g("sample"), largestGap: g("largest-gap"), gaps: g("gaps"), all: p.innerText, note: g("source-note"), adjustment: g("adjustment"), disclaimer: g("disclaimer"), empty: g("empty") }; })()`);
+  const anOpen = async () => { if (!(await anRead())?.open) { await page.clickEl(`document.querySelector('[data-testid="analytics-summary"]')`); await sleep(400); } };
+  /** Compares the panel with an expected.json entry; returns the list of differences. */
+  const anDiff = (p, e) => {
+    const bad = [];
+    const eq = (k, ok) => { if (!ok) bad.push(k); };
+    eq("observations", p.observations === String(e.observations));
+    eq("first", p.first === e.first);
+    eq("last", p.last === e.last);
+    eq("returns", e.return_count === 0 ? /^Insufficient data: a return needs at least 2 rows; this sample has 1\.$/.test(p.returns ?? "") : (p.returns ?? "").startsWith(`${e.return_count} · latest ${pct(e.latest.value)} (${e.latest.date}) · lowest ${pct(e.lowest.value)} (${e.lowest.date}) · highest ${pct(e.highest.value)} (${e.highest.date})`));
+    eq("cumulative", e.cumulative === null ? /^Insufficient data: needs at least 2 rows/.test(p.cumulative ?? "") : (p.cumulative ?? "").startsWith(pct(e.cumulative) + " "));
+    eq("stdev", e.stdev === null ? p.stdev === `Insufficient data: needs at least 20 returns; this sample has ${e.return_count}.` : (p.stdev ?? "") === `${pct(e.stdev, false)} per observed return (sample, n−1; not annualised)`);
+    eq("drawdown", e.drawdown === null ? /^Insufficient data: needs at least 2 rows/.test(p.drawdown ?? "") : e.drawdown.peak === null ? /^0\.00%: no close is below/.test(p.drawdown ?? "") : p.drawdown === `${pct(e.drawdown.value)} (peak ${e.drawdown.peak}, trough ${e.drawdown.trough})`);
+    eq("largestGap", e.gaps === null ? /^Insufficient data: needs at least 2 rows/.test(p.largestGap ?? "") : p.largestGap === `${e.gaps.largest_days} calendar ${e.gaps.largest_days === 1 ? "day" : "days"} (${e.gaps.from} to ${e.gaps.to})`);
+    return bad;
+  };
+  await page.send("Page.setInterceptFileChooserDialog", { enabled: true });
+  await page.seedStorage(O + "?ws=market", { "macro-research-workspace-v2": ws("demo", "5Y") }, 4500); await chartReady(page); await sleep(700);
+  const anSaved0 = await page.evaluate(`localStorage.getItem("macro-research-workspace-v2")`);
+  const a0 = await anRead();
+  const a0Geom = await page.rect('[data-widget="chart"] canvas');
+  await anOpen();
+  const a1 = await anRead();
+  const a1Geom = await page.rect('[data-widget="chart"] canvas');
+  const a1Saved = await page.evaluate(`localStorage.getItem("macro-research-workspace-v2")`);
+  const rowsA5y = etf.candles["DEMO-A"].filter((c) => c.date >= "2019-01-01");
+  const o5 = anOracle(rowsA5y);
+  await page.shot(join(OUT, "14_analytics_simulated.png"));
+  check("analytics", "A1", "Closed by default; on simulated bars it says SIMULATED, not observed market performance; figures equal a separate calculation; opening it saves nothing",
+    a0?.open === false && a0.source === "simulated" && /^PRICE ANALYTICS · SIMULATED DATA · descriptive only, not a forecast or signal · range 5Y/.test(a0.summary ?? "") && a1.open
+    && a1.observations === String(o5.observations) && a1.first === o5.first && a1.last === o5.last && a1.cumulative.startsWith(pct(o5.cumulative) + " ")
+    && a1.stdev.startsWith(pct(o5.stdev, false) + " per observed return (sample, n−1; not annualised)") && a1.drawdown.startsWith(pct(o5.ddValue) + " (peak ") && a1.returns.startsWith(`${o5.return_count} · latest `)
+    && /not observed market performance/.test(a1.note ?? "") && !/release event/.test(a1.note ?? "") && a1Saved === anSaved0 && a0Geom.w - a1Geom.w <= 8 && a1Geom.h >= 170, { a0, a1, o5, a0Geom, a1Geom });
+  await clickButton(page, "1Y"); await sleep(600);
+  const a2 = await anRead();
+  const o1 = anOracle(etf.candles["DEMO-A"].filter((c) => c.date >= "2023-01-01"));
+  await clickButton(page, "+"); await sleep(500);
+  const a2z = await anRead();
+  check("analytics", "A2", "Changing the range changes the sample and the figures; zooming does not, and the panel says so",
+    a2.observations === String(o1.observations) && a2.first === o1.first && a2.cumulative.startsWith(pct(o1.cumulative) + " ") && a2.observations !== a1.observations && /range 1Y/.test(a2.summary ?? "")
+    && JSON.stringify(a2z) === JSON.stringify(a2) && /Zooming or panning the chart does not change it/.test(a2.sample ?? ""), { a2, a2z, o1 });
+  const anReqStart = page.log.requests.length;
+  const anLayout0 = await page.evaluate(`localStorage.getItem("macro-research-workspace-v2")`);
+  await pickFile(join(FIX, "valid_daily_250.csv"));
+  const a3 = await anRead();
+  const a3Diff = anDiff(a3, ANEXP["valid_daily_250.csv"]);
+  await page.shot(join(OUT, "15_analytics_imported.png"));
+  check("analytics", "A3", "A valid CSV: the open panel follows it, labelled USER-IMPORTED and unverified, and every figure equals the independent oracle; the existing import labels stay",
+    a3.source === "imported" && a3.open && /^PRICE ANALYTICS · USER-IMPORTED DATA/.test(a3.summary) && /source and accuracy are unverified/.test(a3.note ?? "") && !/SIMULATED/.test(a3.summary + a3.note) && a3Diff.length === 0
+    && (await text(page, '[data-testid="imported-label"]')) === "USER-IMPORTED DATA — LOCAL FILE" && (await text(page, '[data-testid="simulated-label"]')) === null, { a3, a3Diff });
+  check("analytics", "A4", "The panel states what it does not assume (adjustment, gaps, calendar) and disclaims forecasts, signals and any edge",
+    /not adjusted here and may or may not already reflect splits or dividends/.test(a3.adjustment ?? "") && /Holidays, exchange closures and missing observations cannot be distinguished without a verified trading calendar/.test(a3.gaps ?? "")
+    && a3.disclaimer === "Arithmetic on this sample only: not a forecast, a trading signal, a recommendation or evidence of an edge.", a3);
+  const anCases = {};
+  for (const f of ["constant_21.csv", "doubling_21.csv", "halving_21.csv", "drawdown_recovery.csv", "alternating_21.csv", "alternating_20.csv", "two_rows.csv", "single_row.csv", "gap_sessions.csv"]) {
+    await pickFile(join(ANFIX, f));
+    const p = await anRead(), rt = await chartRoot(page);
+    anCases[f] = { diff: anDiff(p, ANEXP[f]), bars: rt.bars, status: p.status, panel: p };
+  }
+  check("analytics", "A5", "Constant, rising, falling and drawdown-with-recovery files show the oracle's exact figures",
+    ["constant_21.csv", "doubling_21.csv", "halving_21.csv", "drawdown_recovery.csv"].every((f) => anCases[f].diff.length === 0)
+    && anCases["constant_21.csv"].panel.stdev.startsWith("0.00% per observed return") && /^0\.00%: no close is below/.test(anCases["doubling_21.csv"].panel.drawdown)
+    && anCases["drawdown_recovery.csv"].panel.drawdown === "−50.00% (peak 2025-01-07, trough 2025-01-09)" && anCases["drawdown_recovery.csv"].panel.cumulative.startsWith("+50.00% "), anCases);
+  check("analytics", "A6", "Exactly 20 returns show the standard deviation; 19 show the insufficient-data message, and the other figures remain",
+    anCases["alternating_21.csv"].diff.length === 0 && anCases["alternating_21.csv"].panel.stdev.startsWith("23.08% per observed return") && anCases["alternating_20.csv"].diff.length === 0
+    && anCases["alternating_20.csv"].panel.stdev === "Insufficient data: needs at least 20 returns; this sample has 19." && anCases["alternating_20.csv"].panel.cumulative.startsWith("+25.00% "), anCases);
+  check("analytics", "A7", "The shortest valid file (1 row) is accepted and charted; only count and dates are shown, each other figure explains why; 2 rows give a return",
+    anCases["single_row.csv"].diff.length === 0 && anCases["single_row.csv"].bars === "1" && anCases["single_row.csv"].status === "ok" && anCases["single_row.csv"].panel.observations === "1"
+    && anCases["single_row.csv"].panel.drawdown === "Insufficient data: needs at least 2 rows; this sample has 1." && anCases["two_rows.csv"].diff.length === 0 && anCases["two_rows.csv"].panel.cumulative.startsWith("+10.00% "), anCases);
+  const gapP = anCases["gap_sessions.csv"];
+  check("analytics", "A8", "A file with a gap: the chart and panel have exactly its rows (none fabricated), the return spans the gap, the largest gap is reported without classifying it, and the calendar limitation is stated",
+    gapP.diff.length === 0 && gapP.bars === "4" && gapP.panel.observations === "4" && gapP.panel.returns.startsWith("3 · latest 0.00% (2025-01-20) · lowest −10.00% (2025-01-17) · highest +10.00% (2025-01-07)")
+    && gapP.panel.largestGap === "10 calendar days (2025-01-07 to 2025-01-17)" && /does not by itself show that sessions are missing/.test(gapP.panel.gaps ?? "") && !/longer than|sessions are not|sessions were/i.test(gapP.panel.all)
+    && anCases["two_rows.csv"].panel.largestGap.startsWith("1 calendar day ("), gapP);
+  await pickFile(join(FIX, "duplicate_dates.csv"));
+  const a9 = await anRead();
+  check("analytics", "A9", "A rejected file leaves the previous import's figures unchanged", anDiff(a9, ANEXP["gap_sessions.csv"]).length === 0 && a9.source === "imported" && !!(await text(page, '[data-testid="import-error"]')), a9);
+  await page.clickEl(`document.querySelector('[data-testid="import-error"] button')`); await sleep(200);
+  await pickFile(join(FIX, "short_15.csv"));
+  const a10a = await anRead();
+  await page.clickEl(`document.querySelector('[data-testid="dataset-demo"]')`); await sleep(1000);
+  const a10b = await anRead();
+  await page.clickEl(`document.querySelector('[data-testid="dataset-overlay"]')`); await sleep(1500);
+  const a10c = await anRead();
+  await page.clickEl(`document.querySelector('[data-testid="dataset-imported"]')`); await sleep(800);
+  const a10d = await anRead();
+  const oDemo = anOracle(etf.candles["DEMO-A"].filter((c) => c.date >= "2023-01-01")), oOver = anOracle(overlay.candles["DEMO-A"].filter((c) => c.date >= "2022-01-01"));
+  check("analytics", "A10", "Switching imported → demo → overlay → imported: the panel stays open while data load; figures and label follow the source each time, with no figures carried over; the overlay states they measure no release event",
+    [a10a, a10b, a10c, a10d].every((x) => x.open === true) && anDiff(a10a, ANEXP["short_15.csv"]).length === 0 && a10a.source === "imported" && a10b.source === "simulated" && a10b.observations === String(oDemo.observations) && a10b.cumulative.startsWith(pct(oDemo.cumulative) + " ")
+    && a10c.source === "simulated" && a10c.observations === String(oOver.observations) && a10c.cumulative.startsWith(pct(oOver.cumulative) + " ") && /do not measure any release event/.test(a10c.note ?? "")
+    && anDiff(a10d, ANEXP["short_15.csv"]).length === 0 && a10d.source === "imported", { a10a, a10b, a10c, a10d, oDemo, oOver });
+  await pickFile(join(FIX, "valid_daily_250.csv"));
+  // Worst case for space: the import notice is still up. Straight after opening, the whole chart (with its axes) and every figure must be in view
+  // together; after scrolling the panel to its end, the provenance line must remain in view.
+  const anGeom = () => page.evaluate(`(() => { const p = document.querySelector('[data-testid="analytics-panel"]'), s = document.querySelector('[data-testid="analytics-summary"]'), r = document.querySelector('[data-testid="chart-root"]'), cs = [...document.querySelectorAll('[data-widget="chart"] canvas')].map((c) => c.getBoundingClientRect());
+    const pr = p.getBoundingClientRect(), rr = r.getBoundingClientRect(), dr = p.querySelector("dl")?.getBoundingClientRect(), inRoot = (top, bottom) => top >= rr.top - 1 && bottom <= rr.bottom + 1;
+    const g = { open: p.open, overflow: document.documentElement.scrollWidth - window.innerWidth, panelW: pr.width, panelH: pr.height, rootW: rr.width, rootH: rr.height, panelOverflow: p.scrollWidth - p.clientWidth, canvasH: Math.max(...cs.map((c) => c.height)),
+      chartInView: inRoot(Math.min(...cs.map((c) => c.top)), Math.max(...cs.map((c) => c.bottom))), figuresInView: !!dr && inRoot(dr.top, dr.bottom), scrollable: r.scrollHeight - r.clientHeight };
+    const top = r.scrollTop; r.scrollTop = r.scrollHeight; const sr = s.getBoundingClientRect(); g.summaryPinned = inRoot(sr.top, sr.bottom); r.scrollTop = top; return g; })()`);
+  const a11Ok = (g) => g.open === true && g.overflow <= 0 && g.panelOverflow <= 0 && g.panelW <= g.rootW && g.canvasH >= 170 && g.chartInView && g.figuresInView && g.summaryPinned;
+  const anReopen = async () => { for (let i = 0; i < 2; i++) { await page.clickEl(`document.querySelector('[data-testid="analytics-summary"]')`); await sleep(400); } };
+  await anReopen();
+  const a11w = await anGeom();
+  await page.shot(join(OUT, "15b_analytics_imported_1440_open.png"));
+  await page.viewport(1024, 800); await sleep(900);
+  await anReopen();
+  const a11 = await anGeom();
+  await page.shot(join(OUT, "16_analytics_1024.png"));
+  await page.viewport(1440, 790); await sleep(500);
+  check("analytics", "A11", "Open on an imported file at 1440 and 1024 px, with the import notice up: no page overflow; straight after opening, a chart at least 170 px tall with its axes and every figure are in view together, with no row cut off by a nested scroller; the provenance line stays pinned while the panel scrolls",
+    a11Ok(a11w) && a11Ok(a11), { a11w, a11 });
+  const a14Saved = await page.evaluate(`localStorage.getItem("macro-research-workspace-v2")`);
+  await page.clickEl(`document.querySelector('[data-testid="chart-expand"]')`); await sleep(1000);
+  const a14 = { panel: await anRead(), geom: await anGeom() };
+  await page.clickEl(`document.querySelector('[data-testid="chart-expand"]')`); await sleep(1000);
+  const a14After = { panel: await anRead(), saved: await page.evaluate(`localStorage.getItem("macro-research-workspace-v2")`) };
+  check("analytics", "A14", "Expand chart with the panel open: same figures, a larger chart, nothing saved; Restore returns to the same figures",
+    a14.geom.canvasH > a11w.canvasH && a14.panel.observations === "250" && anDiff(a14.panel, ANEXP["valid_daily_250.csv"]).length === 0 && a14.panel.source === "imported"
+    && anDiff(a14After.panel, ANEXP["valid_daily_250.csv"]).length === 0 && a14After.saved === a14Saved, { a14, a14After: a14After.panel, canvas1440: a11w.canvasH });
+  const anStored = await page.evaluate(`(async () => ({ local: JSON.stringify({ ...localStorage }), session: JSON.stringify({ ...sessionStorage }), cookie: document.cookie, idb: (await indexedDB.databases()).map(d => d.name), caches: await caches.keys() }))()`);
+  const anImportedOnly = page.log.requestDetails.slice(anReqStart).filter((r) => !/\/data\/event_overlay_prices\.json$/.test(r.url));
+  const anFig = ANEXP["valid_daily_250.csv"].cumulative.toString().slice(0, 8);
+  const a12Layout = await page.evaluate(`localStorage.getItem("macro-research-workspace-v2")`);
+  check("analytics", "A12", "Privacy: no request carried a body, only the built-in overlay file was requested while switching, and storage holds no file data, name or derived figure; the layout changed only by the chosen dataset",
+    page.log.requestDetails.filter((r) => r.body || !["GET", "HEAD"].includes(r.method)).length === 0 && anImportedOnly.length === 0
+    && ![anStored.local, anStored.session, anStored.cookie].some((x) => x.includes(SENTINEL) || x.includes(anFig) || /valid_daily|short_15|alternating|analytics/i.test(x)) && anStored.idb.length === 0 && anStored.caches.length === 0
+    && JSON.stringify(JSON.parse(a12Layout).state.layout) === JSON.stringify(JSON.parse(anLayout0).state.layout), { anImportedOnly, anFig, idb: anStored.idb, caches: anStored.caches });
+  await page.reload(4000); await chartReady(page); await sleep(800);
+  const a13 = { panel: await anRead(), btn: await page.evaluate(`!!document.querySelector('[data-testid="dataset-imported"]')`), root: await chartRoot(page) };
+  check("analytics", "A13", "After a reload the import and its figures are gone; the panel is closed again and labelled simulated",
+    a13.panel?.open === false && a13.panel.source === "simulated" && !a13.btn && a13.root.dataset !== "imported", a13);
+  await page.viewport(1024, 800); await sleep(900);
+  await anOpen();
+  const a15 = { panel: await anRead(), geom: await anGeom() };
+  await page.shot(join(OUT, "16b_analytics_simulated_1024.png"));
+  await page.clickEl(`document.querySelector('[data-testid="analytics-summary"]')`); await sleep(400);
+  a15.closedOverflow = await page.evaluate(`(() => { const r = document.querySelector('[data-testid="chart-root"]'); return r.scrollHeight - r.clientHeight; })()`);
+  await page.viewport(1440, 790); await sleep(500);
+  check("analytics", "A15", "Simulated data at 1024 px, opened: the same usability conditions hold under the SIMULATED label; closing returns the panel to no scrolling",
+    a15.panel.source === "simulated" && /not observed market performance/.test(a15.panel.note ?? "") && a11Ok(a15.geom) && a15.closedOverflow <= 1, a15);
   await page.send("Page.setInterceptFileChooserDialog", { enabled: false });
   await page.clickEl(`document.querySelector('[data-testid="dataset-demo"]')`); await sleep(800);
 

@@ -37,6 +37,7 @@ TradingView Lightweight Charts™, served by a small Python server that listens 
 | **Macro**: release schedule and publication status for 38 events (CPI, Employment Situation, GDP Advance) | Working, real official metadata, **dated snapshot** collected 2026-10-16/17. Not refreshed. |
 | **Event overlay** (Market → EVENT OVERLAY): markers for the 5 release events due by the 2026-10-17 snapshot (2 publication confirmed, 3 scheduled time passed but not confirmed), with official times and source links | Working: **real event dates and statuses on a separately simulated price set** (2025-01-02 to 2026-10-16). The alignment is illustrative; it shows no market reaction. |
 | **Import local data** (Market → IMPORT LOCAL DATA): chart your own daily OHLCV `.csv` or `.json` file with all chart tools | Working, **in the browser only**: not uploaded or saved, and gone after a reload. Labelled **USER-IMPORTED DATA — LOCAL FILE**. Structure and numbers are checked; source, accuracy and rights are not. See [docs/IMPORT.md](docs/IMPORT.md). |
+| **Price analytics** (below each Market chart): returns, cumulative price return, standard deviation of returns, maximum closing drawdown, and the sample's size and dates | Working, **descriptive only**, calculated in the browser for the selected range and labelled simulated or user-imported. Not annualised; not a forecast, signal or recommendation. See [docs/IMPORT.md](docs/IMPORT.md#price-analytics). |
 | **Research**: results view (labels, intervals, per-model AUCs) | Working, **illustrative random figures** |
 | Point-in-time macro explorer (first releases, yields) | Panel exists; **no dataset included** (shows a "not included" notice) |
 | Event studies (measured reactions), strategy backtesting, AI research assistant | **Not implemented** (planned) |
@@ -84,8 +85,9 @@ come from PostCSS 8.4.31, which Next.js 15 bundles, and together they cover four
 ## Tests
 
 ```bash
-python3 -m unittest discover -s tests                     # generator, validator, server security, repository scan
+python3 -m unittest discover -s tests                     # generator, validator, server security, repository scan, analytics oracle
 node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/import/import.test.mjs   # local-import parser (Node >= 22.18)
+node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/analytics/analytics.test.mjs   # price analytics (Node >= 22.18)
 node tests/browser/smoke.mjs                              # browser checks; needs `npm run build` first
 CHROME_PATH=/path/to/chrome node tests/browser/smoke.mjs  # if Chrome/Chromium is not in a standard location
 cd web && npm run typecheck
@@ -105,6 +107,7 @@ python3 -m terminal_demo.generate --check                 # demo-data/ equals a 
 - instrument switching;
 - layout persistence across reload;
 - labels;
+- price analytics figures against independently computed answers;
 - network boundaries;
 - missing-data and empty-data states.
 

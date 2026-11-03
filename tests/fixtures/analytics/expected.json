@@ -1,0 +1,315 @@
+{
+  "alternating_20.csv": {
+    "cumulative": 0.25,
+    "drawdown": {
+      "peak": "2025-01-07",
+      "trough": "2025-01-08",
+      "value": -0.2
+    },
+    "first": "2025-01-06",
+    "gaps": {
+      "from": "2025-01-10",
+      "largest_days": 3,
+      "to": "2025-01-13"
+    },
+    "highest": {
+      "date": "2025-01-07",
+      "value": 0.25
+    },
+    "last": "2025-01-31",
+    "latest": {
+      "date": "2025-01-31",
+      "value": 0.25
+    },
+    "lowest": {
+      "date": "2025-01-08",
+      "value": -0.2
+    },
+    "observations": 20,
+    "return_count": 19,
+    "stdev": null
+  },
+  "alternating_21.csv": {
+    "cumulative": 0.0,
+    "drawdown": {
+      "peak": "2025-01-07",
+      "trough": "2025-01-08",
+      "value": -0.2
+    },
+    "first": "2025-01-06",
+    "gaps": {
+      "from": "2025-01-10",
+      "largest_days": 3,
+      "to": "2025-01-13"
+    },
+    "highest": {
+      "date": "2025-01-07",
+      "value": 0.25
+    },
+    "last": "2025-02-03",
+    "latest": {
+      "date": "2025-02-03",
+      "value": -0.2
+    },
+    "lowest": {
+      "date": "2025-01-08",
+      "value": -0.2
+    },
+    "observations": 21,
+    "return_count": 20,
+    "stdev": 0.23084512921915967
+  },
+  "constant_21.csv": {
+    "cumulative": 0.0,
+    "drawdown": {
+      "peak": null,
+      "trough": null,
+      "value": 0.0
+    },
+    "first": "2025-01-06",
+    "gaps": {
+      "from": "2025-01-10",
+      "largest_days": 3,
+      "to": "2025-01-13"
+    },
+    "highest": {
+      "date": "2025-01-07",
+      "value": 0.0
+    },
+    "last": "2025-02-03",
+    "latest": {
+      "date": "2025-02-03",
+      "value": 0.0
+    },
+    "lowest": {
+      "date": "2025-01-07",
+      "value": 0.0
+    },
+    "observations": 21,
+    "return_count": 20,
+    "stdev": 0.0
+  },
+  "doubling_21.csv": {
+    "cumulative": 1048575.0,
+    "drawdown": {
+      "peak": null,
+      "trough": null,
+      "value": 0.0
+    },
+    "first": "2025-01-06",
+    "gaps": {
+      "from": "2025-01-10",
+      "largest_days": 3,
+      "to": "2025-01-13"
+    },
+    "highest": {
+      "date": "2025-01-07",
+      "value": 1.0
+    },
+    "last": "2025-02-03",
+    "latest": {
+      "date": "2025-02-03",
+      "value": 1.0
+    },
+    "lowest": {
+      "date": "2025-01-07",
+      "value": 1.0
+    },
+    "observations": 21,
+    "return_count": 20,
+    "stdev": 0.0
+  },
+  "drawdown_recovery.csv": {
+    "cumulative": 0.5,
+    "drawdown": {
+      "peak": "2025-01-07",
+      "trough": "2025-01-09",
+      "value": -0.5
+    },
+    "first": "2025-01-06",
+    "gaps": {
+      "from": "2025-01-10",
+      "largest_days": 3,
+      "to": "2025-01-13"
+    },
+    "highest": {
+      "date": "2025-01-10",
+      "value": 0.5
+    },
+    "last": "2025-01-14",
+    "latest": {
+      "date": "2025-01-14",
+      "value": 0.25
+    },
+    "lowest": {
+      "date": "2025-01-09",
+      "value": -0.3333333333333333
+    },
+    "observations": 7,
+    "return_count": 6,
+    "stdev": null
+  },
+  "gap_sessions.csv": {
+    "cumulative": -0.01,
+    "drawdown": {
+      "peak": "2025-01-07",
+      "trough": "2025-01-17",
+      "value": -0.1
+    },
+    "first": "2025-01-06",
+    "gaps": {
+      "from": "2025-01-07",
+      "largest_days": 10,
+      "to": "2025-01-17"
+    },
+    "highest": {
+      "date": "2025-01-07",
+      "value": 0.1
+    },
+    "last": "2025-01-20",
+    "latest": {
+      "date": "2025-01-20",
+      "value": 0.0
+    },
+    "lowest": {
+      "date": "2025-01-17",
+      "value": -0.1
+    },
+    "observations": 4,
+    "return_count": 3,
+    "stdev": null
+  },
+  "halving_21.csv": {
+    "cumulative": -0.9999990463256836,
+    "drawdown": {
+      "peak": "2025-01-06",
+      "trough": "2025-02-03",
+      "value": -0.9999990463256836
+    },
+    "first": "2025-01-06",
+    "gaps": {
+      "from": "2025-01-10",
+      "largest_days": 3,
+      "to": "2025-01-13"
+    },
+    "highest": {
+      "date": "2025-01-07",
+      "value": -0.5
+    },
+    "last": "2025-02-03",
+    "latest": {
+      "date": "2025-02-03",
+      "value": -0.5
+    },
+    "lowest": {
+      "date": "2025-01-07",
+      "value": -0.5
+    },
+    "observations": 21,
+    "return_count": 20,
+    "stdev": 0.0
+  },
+  "short_15.csv": {
+    "cumulative": -0.014112,
+    "drawdown": {
+      "peak": "2025-06-03",
+      "trough": "2025-06-12",
+      "value": -0.048122559920929085
+    },
+    "first": "2025-06-02",
+    "gaps": {
+      "from": "2025-06-06",
+      "largest_days": 3,
+      "to": "2025-06-09"
+    },
+    "highest": {
+      "date": "2025-06-06",
+      "value": 0.01435819863253325
+    },
+    "last": "2025-06-20",
+    "latest": {
+      "date": "2025-06-20",
+      "value": -0.0014625272957829788
+    },
+    "lowest": {
+      "date": "2025-06-11",
+      "value": -0.018836053739158764
+    },
+    "observations": 15,
+    "return_count": 14,
+    "stdev": null
+  },
+  "single_row.csv": {
+    "cumulative": null,
+    "drawdown": null,
+    "first": "2025-01-06",
+    "gaps": null,
+    "highest": null,
+    "last": "2025-01-06",
+    "latest": null,
+    "lowest": null,
+    "observations": 1,
+    "return_count": 0,
+    "stdev": null
+  },
+  "two_rows.csv": {
+    "cumulative": 0.1,
+    "drawdown": {
+      "peak": null,
+      "trough": null,
+      "value": 0.0
+    },
+    "first": "2025-01-06",
+    "gaps": {
+      "from": "2025-01-06",
+      "largest_days": 1,
+      "to": "2025-01-07"
+    },
+    "highest": {
+      "date": "2025-01-07",
+      "value": 0.1
+    },
+    "last": "2025-01-07",
+    "latest": {
+      "date": "2025-01-07",
+      "value": 0.1
+    },
+    "lowest": {
+      "date": "2025-01-07",
+      "value": 0.1
+    },
+    "observations": 2,
+    "return_count": 1,
+    "stdev": null
+  },
+  "valid_daily_250.csv": {
+    "cumulative": 0.06991293394612257,
+    "drawdown": {
+      "peak": "2024-03-01",
+      "trough": "2024-08-27",
+      "value": -0.22897415976795932
+    },
+    "first": "2024-01-02",
+    "gaps": {
+      "from": "2024-01-05",
+      "largest_days": 3,
+      "to": "2024-01-08"
+    },
+    "highest": {
+      "date": "2024-02-19",
+      "value": 0.03229994720489895
+    },
+    "last": "2024-12-16",
+    "latest": {
+      "date": "2024-12-16",
+      "value": 0.00047506951460692554
+    },
+    "lowest": {
+      "date": "2024-03-08",
+      "value": -0.03600617949501939
+    },
+    "observations": 250,
+    "return_count": 249,
+    "stdev": 0.011303911759992178
+  }
+}

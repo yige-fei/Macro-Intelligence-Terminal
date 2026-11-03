@@ -37,6 +37,11 @@
   - The result lives only in `store/imported.ts`, a non-persisted Zustand store. It doesn't touch the server, browser storage or the repository.
   - While a panel shows imported data, its view settings are an in-memory override, so the saved layout is unchanged.
   - Imported data gets its own label and panel title, and no event markers. A reload returns the panel to its saved built-in dataset. See [IMPORT.md](IMPORT.md).
+- **Price analytics.** A collapsible section inside the chart panel, not a separate widget, so saved layouts are unaffected.
+  - `lib/analytics.ts` holds pure, deterministic functions over the bars of the selected range. `components/widgets/PriceAnalytics.tsx` displays them.
+  - It adds no request, storage or saved setting, and whether it's open is component state only.
+  - While it's open, the chart keeps at least 200 px and the panel scrolls, so a small panel squeezes neither.
+  - Built-in data must be marked `synthetic` for the section to appear, so every figure has a stated provenance. Definitions and limits are in [IMPORT.md](IMPORT.md).
 - **Event markers.** On the overlay dataset, `lib/eventMarkers.ts` maps the bundled release-desk events to bars (contract in [DATA.md](DATA.md)). The markers are attached with `createSeriesMarkers` as a series plugin, which leaves zoom and indicators untouched.
   - The panel shows a notice: real official event metadata, simulated prices, illustrative alignment.
   - It also shows an event list with official or scheduled times, document ids, source links and the reason for anything not drawn.
@@ -91,5 +96,7 @@ The generator is deterministic and reads no files (a test checks this). The vali
 | `test_demo_data.py` | Determinism, record validity, rejection of malformed records |
 | `test_server.py` | Real server processes: allowlisted bytes and headers, refused paths, symlink escapes, methods, no path leakage, loopback only, every fail-closed startup case |
 | `test_repository_scan.py` | Tracked files contain no personal paths, emails, credentials, nested `.git`, provider endpoints or third-party data |
-| `browser/smoke.mjs` | Headless Chrome over CDP against the built app, including missing-data scenarios and the local import (I1–I12) |
+| `browser/smoke.mjs` | Headless Chrome over CDP against the built app, including missing-data scenarios, the local import (I1–I12) and price analytics (A1–A15) |
 | `import/import.test.mjs` | Node test runner on `web/lib/importData.ts`: valid and invalid fixtures, CSV grammar, limits, OHLC rules |
+| `analytics/analytics.test.mjs` | Node test runner on `web/lib/analytics.ts`: hand-derived values, minimum-data guards, gaps, refusal of unvalidated input |
+| `test_analytics_oracle.py` | Recomputes the analytics answers in exact rational arithmetic, sharing no code with the implementation |

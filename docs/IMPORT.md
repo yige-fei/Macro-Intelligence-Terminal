@@ -84,6 +84,31 @@ The label "USER-IMPORTED DATA — LOCAL FILE" says exactly that. Importing a fil
 - One file at a time, daily bars only. This isn't a live market feed.
 - Event markers from the Release Desk aren't shown on imported data.
 
+## Price analytics
+
+Below each chart, **PRICE ANALYTICS** opens to show descriptive figures for the bars of the selected range. It always names its data: **USER-IMPORTED DATA** or **SIMULATED DATA**. Simulated figures are not observed market performance.
+
+In a small panel, opening it makes the chart panel scroll, so the chart keeps a usable height and the figures aren't cut off. The chart tools may scroll out of view; scroll up to reach them, or use **Expand chart**.
+
+**The sample** is the selected range button (1Y, 3Y, 5Y, span or ALL). Zooming or panning the chart doesn't change it. For closes C₁…Cₙ, in file order:
+
+| Figure | Definition | Needs |
+|---|---|---|
+| Observations, first and last date | The number of rows in the sample, and the dates of the first and last | 1 row |
+| Close-to-close return | rᵢ = Cᵢ / Cᵢ₋₁ − 1, between consecutive rows. The panel shows how many, the latest, the lowest and the highest | 2 rows |
+| Cumulative price return | Cₙ / C₁ − 1 | 2 rows |
+| Standard deviation of returns | √( Σ (rᵢ − mean r)² / (m − 1) ), over the m returns. Per observed return, **not annualised** | 20 returns |
+| Maximum closing drawdown | The lowest value of Cₜ / (highest close so far) − 1. Peak and trough are the earliest dates that give it. Highs and lows aren't used | 2 rows |
+| Largest gap between rows | The most calendar days between consecutive rows, with its dates. Descriptive only | 2 rows |
+
+**Too little data:** a figure that can't be calculated says so and shows nothing else. The 20-return minimum is a provisional display guard, not a validated statistical threshold.
+
+**What to keep in mind:**
+- **Adjustment.** Prices are used as supplied, and may or may not already reflect splits or dividends. An unadjusted split appears as a large return, and the cumulative figure is a price return, not a total return.
+- **Gaps.** Nothing is filled in. A return across a gap covers the whole gap but counts as one return, which also affects the standard deviation.
+- **No trading calendar.** The panel reports the largest gap between rows in calendar days, and nothing more. Holidays, exchange closures and missing observations can't be distinguished without a verified trading calendar, so a gap doesn't by itself show that sessions are missing.
+- **Scope.** This is arithmetic on the rows you supplied: not a forecast, a trading signal, a recommendation or evidence of an edge. It can't confirm that a file represents a real security. It makes no event calculation.
+
 ## Privacy
 
 **In the browser:**
@@ -92,6 +117,8 @@ The label "USER-IMPORTED DATA — LOCAL FILE" says exactly that. Importing a fil
 - It isn't written to browser storage (localStorage, IndexedDB, cookies) and isn't added to the project.
 
 **Saved settings:** chart settings you change while viewing your file aren't saved either. Your saved demo layout stays exactly as it was.
+
+**Price analytics:** the figures are calculated in the browser from the file already in memory. They aren't sent or stored, and they're gone after a reload.
 
 **What the tests show:** the browser tests import a fictional file, then check that no request is made and no browser storage contains the data. That's evidence for this app's own behaviour, not a guarantee about browser extensions or other software on your computer.
 
@@ -114,3 +141,12 @@ node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/import/import.t
 - that the saved layout is unchanged;
 - the privacy behaviour (no requests, no storage);
 - switching back to the demos, and reloading.
+
+**Price analytics:** the pure calculations are in `web/lib/analytics.ts` and the panel is `web/components/widgets/PriceAnalytics.tsx`. Fictional fixtures with worked answers are in `tests/fixtures/analytics/`. Three kinds of test use them:
+
+```bash
+node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/analytics/analytics.test.mjs   # hand-derived values and edge cases
+python3 -m unittest tests.test_analytics_oracle                                                  # exact-arithmetic recomputation, no shared code
+```
+
+Browser checks A1–A15 in `tests/browser/smoke.mjs` compare the displayed figures with the same answers, and cover labels, switching data, reloading and privacy.

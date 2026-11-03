@@ -23,6 +23,8 @@
 // OS-P2B: a third source, a CSV/JSON file the user imports (lib/importData.ts, store/imported.ts). It is held in
 // memory only; while a panel shows it, its view settings are an in-memory override, so the saved layout never changes.
 // Imported data gets its own label, no event markers, and a reload returns the panel to its saved built-in dataset.
+// AN-1: the Price Analytics section (PriceAnalytics.tsx) reads the bars of the selected range; built-in data must be marked
+// synthetic for it to appear, so every figure has a stated provenance.
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -47,6 +49,7 @@ import { MARK_STYLE, markTime, planEventMarkers, type EventMark, type EventPlan 
 import { describeIssue, importFile, IMPORT_LIMITS } from "../../lib/importData";
 import { useImported } from "../../store/imported";
 import NotIncluded from "../NotIncluded";
+import PriceAnalytics from "./PriceAnalytics";
 import { sma, ema, rsi, macd, bollinger, type Point } from "../../lib/indicators";
 import { useTerminal, useWidgetSymbol, type WidgetInstance } from "../../store/terminal";
 
@@ -151,6 +154,7 @@ export default function ChartWidget({ widget }: { widget: WidgetInstance }) {
       setImporting(false);
     }
   };
+  const [analyticsOpen, setAnalyticsOpen] = useState(false); // kept here: the section unmounts while a dataset loads
   const [legend, setLegend] = useState<Candle | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -491,7 +495,7 @@ export default function ChartWidget({ widget }: { widget: WidgetInstance }) {
   const outOfRange = plan?.kind === "ok" ? plan.marks.length - inView.length : 0;
 
   return (
-    <div ref={rootRef} className="flex flex-col h-full" data-testid="chart-root" data-dataset={source} data-first-bar={candles[0]?.date ?? ""}
+    <div ref={rootRef} className={`flex flex-col h-full ${analyticsOpen ? "overflow-y-auto" : ""}`} data-testid="chart-root" data-dataset={source} data-first-bar={candles[0]?.date ?? ""}
       data-last-bar={candles.at(-1)?.date ?? ""} data-bars={candles.length} data-markers={markerCount} data-marker-labels={markerLabels}>
       <div className="flex gap-1 p-1 flex-wrap shrink-0">
         {DATASETS.map((d) => (
@@ -572,7 +576,8 @@ export default function ChartWidget({ widget }: { widget: WidgetInstance }) {
       {etf && candles.length === 0 && (
         <div className="p-2 dim" role="status" data-testid="chart-empty">No bars for {symbol} in this range. Nothing is drawn rather than an empty chart.</div>
       )}
-      <div className="relative flex-1 min-h-0">
+      {/* AN-1: while Price Analytics is open, the chart keeps a usable height and the panel scrolls, instead of squeezing either. */}
+      <div className={`relative flex-1 ${analyticsOpen ? "min-h-[200px]" : "min-h-0"}`}>
         {legend && (
           <div className="absolute top-1 left-2 z-10 flex flex-col gap-0.5 text-[11px] pointer-events-none bg-[rgba(10,10,10,0.7)] px-2 py-1 rounded max-w-[95%]" data-testid="chart-legend">
             <div className="flex gap-3 flex-wrap">
@@ -649,6 +654,9 @@ export default function ChartWidget({ widget }: { widget: WidgetInstance }) {
             ))}
           </ul>
         </details>
+      )}
+      {(imported || etf?.synthetic) && (
+        <PriceAnalytics bars={candles} provenance={imported ? "imported" : "simulated"} rangeName={rangeLabel(range, first, last)} overlay={source === "overlay"} open={analyticsOpen} onOpenChange={setAnalyticsOpen} />
       )}
       <div className="px-2 py-0.5 dim text-[10px] shrink-0">
         {source === "imported" && imported
