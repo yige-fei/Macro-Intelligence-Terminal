@@ -16,7 +16,7 @@ HOME_PATH = re.compile("/" + "Users/[A-Za-z0-9._-]+|/" + "home/[a-z0-9._-]+/|[A-
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+" + "@" + r"[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 PROVIDER_HOSTS = re.compile("|".join(re.escape(h) for h in (
     "finance." + "yahoo.com", "query1.finance." + "yahoo", "query2.finance." + "yahoo", "api.stlouisfed" + ".org",
-    "fred.stlouisfed" + ".org", "alfred.stlouisfed" + ".org", "cboe" + ".com", "api.tiingo" + ".com")))
+    "fred.stlouisfed" + ".org", "alfred.stlouisfed" + ".org", "cboe" + ".com", "api.tiingo" + ".com", "api.bls" + ".gov")))
 KEY_ASSIGN = re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*['\"][A-Za-z0-9_\-]{16,}['\"]")
 ALLOWED_EMAILS = set()  # none: the repository names no contact address
 DOC_SUFFIXES = {".md"}
@@ -94,6 +94,17 @@ class Scan(unittest.TestCase):
         self.assertEqual(len(d["events"]), 38)
         hosts = set(re.findall(r"https?://([^/\"]+)", json.dumps(d)))
         self.assertEqual(hosts, {"www.bls.gov", "www.bea.gov"})
+
+    def test_release_observations_are_real_labelled_and_cite_only_bls(self):
+        # MN-1: named explicitly, because the file's name alone would pass the filename guard above. Its values are pinned in test_release_observations.py.
+        d = json.loads((REPO / "web" / "public" / "intel" / "release_observations.v1.json").read_text())
+        self.assertIs(d["synthetic"], False)
+        self.assertEqual(d["values_policy"], "OFFICIAL_VALUES_FROM_CITED_RELEASE")
+        self.assertEqual(sum(len(r["observations"]) for r in d["releases"]), 4)
+        self.assertEqual(set(re.findall(r"https?://([^/\"]+)", json.dumps(d))), {"www.bls.gov"})
+
+    def test_no_official_source_documents_are_tracked(self):
+        self.assertEqual([self.rel(p) for p in self.files if p.suffix.lower() in {".pdf", ".xlsx", ".xls"}], [])
 
 
 if __name__ == "__main__":

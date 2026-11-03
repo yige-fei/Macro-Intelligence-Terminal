@@ -8,21 +8,24 @@ source and run it on your own computer; there's no hosted demo or installer.
   Statistics (BLS) and Bureau of Economic Analysis (BEA), from a pinned snapshot taken on 17 October 2026. Each event
   cites its official source and shows whether its publication was confirmed or it was only scheduled. This is
   metadata only, with no economic values.
+- **One official CPI release:** a separate Official Values tab shows four figures from the BLS release for September
+  2026, as first published on 14 October 2026. It's a historical snapshot, not the current rate of inflation, and it isn't
+  updated.
 - **Charts:** daily candlestick, bar, line and area charts with volume, moving averages, Bollinger Bands, RSI and MACD,
   on fictional, simulated prices. A separate simulated set shows the release dates as chart markers.
 - **Your own data:** chart a daily price file (CSV or JSON) entirely in your browser. It isn't uploaded or saved.
 - **Research view:** shows how evaluation results would be presented, using illustrative random figures rather than
   a real model's output.
 
-**Not built:** live market feeds, automatically refreshed releases, real macroeconomic numbers, an AI research
-assistant, a backtesting engine, trade execution, or a hosted demo or installer. Some of these are on the
+**Not built:** live market feeds, automatically refreshed releases, macroeconomic figures beyond those four, an AI
+research assistant, a backtesting engine, trade execution, or a hosted demo or installer. Some of these are on the
 [roadmap](#roadmap-not-implemented).
 
 Under the hood it's a static Next.js app built on [OpenTerminal](https://github.com/ErTasselli/OpenTerminal) and
 TradingView Lightweight Charts™, served by a small Python server that listens only on your own machine (127.0.0.1).
 
 > **What is real and what is simulated**
-> - **Real:** the release-desk metadata (schedules and publication status of CPI, Employment Situation and GDP Advance releases, from official BLS and BEA pages; no economic values).
+> - **Real:** the release-desk metadata (schedules and publication status of CPI, Employment Situation and GDP Advance releases, from official BLS and BEA pages; no economic values), and the four CPI figures in the Official Values tab, copied from one archived BLS release.
 > - **Simulated:** every market price, labelled **SIMULATED DATA — NOT REAL MARKET PRICES**. The instruments are fictional (`DEMO-A` to `DEMO-D`).
 > - **Illustrative:** every research figure. These are random draws, not results.
 >
@@ -35,6 +38,7 @@ TradingView Lightweight Charts™, served by a small Python server that listens 
 | Home, navigation (`?ws=` deep links, browser Back), Settings & About | Working |
 | **Market**: daily candlestick/bar/line/area charts, volume, SMA/EMA/Bollinger overlays, RSI and MACD panes, range presets, zoom and pan, command palette (Ctrl/⌘+K), layout saved in the browser | Working on **simulated** data. Panel drag and resize come from upstream; the automated checks don't exercise them. |
 | **Macro**: release schedule and publication status for 38 events (CPI, Employment Situation, GDP Advance) | Working, real official metadata, **dated snapshot** collected 2026-10-16/17. Not refreshed. |
+| **Official Values** (Macro → OFFICIAL VALUES): four CPI-U figures for September 2026 from BLS release USDL-26-1574, each with its seasonal basis, source table, row and column | Working, **real official values as first published; a historical snapshot, never updated**. Shown only if the file is valid and its release agrees with the release desk. The other release-desk events have no figures. See [docs/DATA.md](docs/DATA.md#official-values-webpublicintel). |
 | **Event overlay** (Market → EVENT OVERLAY): markers for the 5 release events due by the 2026-10-17 snapshot (2 publication confirmed, 3 scheduled time passed but not confirmed), with official times and source links | Working: **real event dates and statuses on a separately simulated price set** (2025-01-02 to 2026-10-16). The alignment is illustrative; it shows no market reaction. |
 | **Import local data** (Market → IMPORT LOCAL DATA): chart your own daily OHLCV `.csv` or `.json` file with all chart tools | Working, **in the browser only**: not uploaded or saved, and gone after a reload. Labelled **USER-IMPORTED DATA — LOCAL FILE**. Structure and numbers are checked; source, accuracy and rights are not. See [docs/IMPORT.md](docs/IMPORT.md). |
 | **Price analytics** (below each Market chart): returns, cumulative price return, standard deviation of returns, maximum closing drawdown, and the sample's size and dates | Working, **descriptive only**, calculated in the browser for the selected range and labelled simulated or user-imported. Not annualised; not a forecast, signal or recommendation. See [docs/IMPORT.md](docs/IMPORT.md#price-analytics). |
@@ -85,21 +89,25 @@ come from PostCSS 8.4.31, which Next.js 15 bundles, and together they cover four
 ## Tests
 
 ```bash
-python3 -m unittest discover -s tests                     # generator, validator, server security, repository scan, analytics oracle
+python3 -m unittest discover -s tests                     # generator, validator, server security, repository scan, analytics oracle, official values
 node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/import/import.test.mjs   # local-import parser (Node >= 22.18)
 node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/analytics/analytics.test.mjs   # price analytics (Node >= 22.18)
+node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/observations/observations.test.mjs   # official values and desk link (Node >= 22.18)
 node tests/browser/smoke.mjs                              # browser checks; needs `npm run build` first
 CHROME_PATH=/path/to/chrome node tests/browser/smoke.mjs  # if Chrome/Chromium is not in a standard location
 cd web && npm run typecheck
 python3 -m terminal_demo.generate --check                 # demo-data/ equals a fresh generation
 ```
 
+`tests/browser/excluded_mode.mjs` checks a metadata-only build; see its header for the build it needs.
+
 **Python tests** (standard library only) cover:
 - deterministic generation;
 - rejection of malformed bars and timestamps;
 - the server's allowlist and path-traversal protections;
 - fail-closed startup;
-- a scan for personal paths, credentials, provider endpoints and third-party data.
+- a scan for personal paths, credentials, provider endpoints and third-party data;
+- the four official figures, against expected values written separately from the application.
 
 **Browser checks** run headless Chrome over the DevTools protocol with no extra packages. They exercise the real UI:
 - navigation;
@@ -108,6 +116,7 @@ python3 -m terminal_demo.generate --check                 # demo-data/ equals a 
 - layout persistence across reload;
 - labels;
 - price analytics figures against independently computed answers;
+- official figures and their fail-closed states;
 - network boundaries;
 - missing-data and empty-data states.
 
@@ -120,11 +129,12 @@ python3 -m terminal_demo.generate --check                 # demo-data/ equals a 
 | `demo-data/research.json` | Illustrative figures: uniform random draws around AUC 0.5. No model was fitted. |
 | `demo-data/manifest.json`, `ALLOWLIST.json` | Generator identity and SHA-256 of each served file |
 | `web/public/intel/release_desk.v1.json` | Release metadata from official BLS/BEA pages. Schedule and status only; no economic values. |
+| `web/public/intel/release_observations.v1.json` | Four CPI figures copied from one archived BLS release, with their source table, row and column. Written by hand and checked against the release; nothing fetches or refreshes it. |
 
 Regenerate with `python3 -m terminal_demo.generate` (seed `20261020`). Details: [docs/DATA.md](docs/DATA.md).
 
 **Rights:**
-- This repository contains **no** third-party market data and **no** FRED/ALFRED or Cboe data.
+- This repository contains **no** third-party market data and **no** FRED/ALFRED or Cboe data. Its only official economic figures are the four BLS CPI figures above, and BLS's public-domain statement doesn't address use outside the United States ([NOTICE.md](NOTICE.md)).
 - The project's MIT licence grants no rights in data from any provider; see [NOTICE.md](NOTICE.md).
 - Optional adapters for official sources are planned, not implemented. You can already chart your own daily CSV/JSON file in the browser ([docs/IMPORT.md](docs/IMPORT.md)); it stays under its own terms.
 
@@ -138,7 +148,7 @@ The Research page demonstrates the presentation layer with illustrative numbers.
 
 The frontend is a static export (OpenTerminal workspace, Zustand store, react-grid-layout, Lightweight Charts). It reads only:
 - same-origin `./data/*.json`, served by `terminal_demo.serve` from an allowlist;
-- `./intel/*.json`, the release desk.
+- `./intel/*.json`, the release desk and the official values.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -156,7 +166,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Licence:** this project's own code, documentation and generated fictional data are under the **MIT License**, Copyright (c) 2026 Samology ([LICENSE](LICENSE)).
   - Files adapted from OpenTerminal keep OpenTerminal's MIT notice.
   - Third-party libraries keep their own licences.
-  - BLS/BEA release metadata keeps its public-domain source status.
+  - BLS/BEA release metadata and the four BLS CPI figures keep their source status.
   - Files you import are not covered.
 
   The boundaries are set out in [NOTICE.md](NOTICE.md).

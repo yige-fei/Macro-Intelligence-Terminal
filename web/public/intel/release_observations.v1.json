@@ -1,0 +1,121 @@
+{
+  "contract": "macro_release_observations",
+  "version": "1.0.0",
+  "data_mode": "SOURCE_DERIVED",
+  "synthetic": false,
+  "values_policy": "OFFICIAL_VALUES_FROM_CITED_RELEASE",
+  "prepared_at_utc": "2026-11-03T16:15:37Z",
+  "attribution": ["Source: U.S. Bureau of Labor Statistics"],
+  "releases": [
+    {
+      "release_event_id": "BLS.CPI.2026-09",
+      "publisher_code": "BLS",
+      "publisher_name": "U.S. Bureau of Labor Statistics",
+      "indicator": "Consumer Price Index",
+      "document_id": "USDL-26-1574",
+      "document_title": "CONSUMER PRICE INDEX – SEPTEMBER 2026",
+      "document_url": "https://www.bls.gov/news.release/archives/cpi_10142026.htm",
+      "document_pdf_url": "https://www.bls.gov/news.release/archives/cpi_10142026.pdf",
+      "published": {
+        "local_date": "2026-10-14",
+        "local_time": "08:30",
+        "time_zone": "America/New_York",
+        "source_tz_label": "ET",
+        "utc": "2026-10-14T12:30:00Z",
+        "basis": "SOURCE_STATED_EMBARGO",
+        "excerpt": "embargoed until 8:30 a.m. (ET) Wednesday, October 14, 2026"
+      },
+      "reference_period": { "kind": "month", "period": "2026-09" },
+      "source_notes": [
+        { "text": "NOTE: The Oct and Nov 2025 data values are not available due to the 2025 lapse in appropriations.", "location": "Note below Chart 1, one-month percent change" },
+        { "text": "NOTE: The Oct 2025 data values are not available due to the 2025 lapse in appropriations.", "location": "Note below Chart 2, 12-month percent change" }
+      ],
+      "source_document_sha256": "d2fe7deb0ae83a869a37553c9d3934d3d5be4969cd3ca9763a4881df878bf66a",
+      "retrieved_at_utc": "2026-11-03T12:21:13Z",
+      "retrieval_method": "AGENT_FETCH_OF_OFFICIAL_ARCHIVE_PDF",
+      "verification": {
+        "status": "AGENT_VERIFIED_AGAINST_SOURCE",
+        "verified_at_utc": "2026-11-03T16:15:37Z",
+        "method": "An AI coding agent read Table 1, Table A and the narrative in the official PDF. No person has confirmed this yet."
+      },
+      "observations": [
+        {
+          "observation_id": "BLS.CPI.2026-09.CPIU_ALL_ITEMS.PCT_1M_SA",
+          "indicator_label": "All items",
+          "population": "All Urban Consumers (CPI-U)",
+          "area": "U.S. city average",
+          "metric": "PERCENT_CHANGE_1M",
+          "comparison_period": { "from": "2026-08", "to": "2026-09" },
+          "availability": "PUBLISHED",
+          "value_text": "0.6",
+          "unit": "percent",
+          "seasonal_adjustment": "SEASONALLY_ADJUSTED",
+          "source_location": {
+            "table": "Table 1. Consumer Price Index for All Urban Consumers (CPI-U): U.S. city average, by expenditure category, September 2026",
+            "row": "All items",
+            "column": "Seasonally adjusted percent change, Aug. 2026-Sep. 2026"
+          },
+          "value_status": "FIRST_PUBLISHED",
+          "revision_note": "BLS says seasonally adjusted data \"are subject to revision for up to 5 years after their original release\", so its current tables may differ from this figure."
+        },
+        {
+          "observation_id": "BLS.CPI.2026-09.CPIU_ALL_ITEMS.PCT_12M_NSA",
+          "indicator_label": "All items",
+          "population": "All Urban Consumers (CPI-U)",
+          "area": "U.S. city average",
+          "metric": "PERCENT_CHANGE_12M",
+          "comparison_period": { "from": "2025-09", "to": "2026-09" },
+          "availability": "PUBLISHED",
+          "value_text": "3.7",
+          "unit": "percent",
+          "seasonal_adjustment": "NOT_SEASONALLY_ADJUSTED",
+          "source_location": {
+            "table": "Table 1. Consumer Price Index for All Urban Consumers (CPI-U): U.S. city average, by expenditure category, September 2026",
+            "row": "All items",
+            "column": "Unadjusted percent change, Sep. 2025-Sep. 2026"
+          },
+          "value_status": "FIRST_PUBLISHED",
+          "revision_note": "BLS's CPI FAQ says CPI-U series \"are final when issued\", apart from any correction it issues."
+        },
+        {
+          "observation_id": "BLS.CPI.2026-09.CPIU_LESS_FOOD_ENERGY.PCT_1M_SA",
+          "indicator_label": "All items less food and energy",
+          "population": "All Urban Consumers (CPI-U)",
+          "area": "U.S. city average",
+          "metric": "PERCENT_CHANGE_1M",
+          "comparison_period": { "from": "2026-08", "to": "2026-09" },
+          "availability": "PUBLISHED",
+          "value_text": "0.3",
+          "unit": "percent",
+          "seasonal_adjustment": "SEASONALLY_ADJUSTED",
+          "source_location": {
+            "table": "Table 1. Consumer Price Index for All Urban Consumers (CPI-U): U.S. city average, by expenditure category, September 2026",
+            "row": "All items less food and energy",
+            "column": "Seasonally adjusted percent change, Aug. 2026-Sep. 2026"
+          },
+          "value_status": "FIRST_PUBLISHED",
+          "revision_note": "BLS says seasonally adjusted data \"are subject to revision for up to 5 years after their original release\", so its current tables may differ from this figure."
+        },
+        {
+          "observation_id": "BLS.CPI.2026-09.CPIU_LESS_FOOD_ENERGY.PCT_12M_NSA",
+          "indicator_label": "All items less food and energy",
+          "population": "All Urban Consumers (CPI-U)",
+          "area": "U.S. city average",
+          "metric": "PERCENT_CHANGE_12M",
+          "comparison_period": { "from": "2025-09", "to": "2026-09" },
+          "availability": "PUBLISHED",
+          "value_text": "2.6",
+          "unit": "percent",
+          "seasonal_adjustment": "NOT_SEASONALLY_ADJUSTED",
+          "source_location": {
+            "table": "Table 1. Consumer Price Index for All Urban Consumers (CPI-U): U.S. city average, by expenditure category, September 2026",
+            "row": "All items less food and energy",
+            "column": "Unadjusted percent change, Sep. 2025-Sep. 2026"
+          },
+          "value_status": "FIRST_PUBLISHED",
+          "revision_note": "BLS's CPI FAQ says CPI-U series \"are final when issued\", apart from any correction it issues."
+        }
+      ]
+    }
+  ]
+}

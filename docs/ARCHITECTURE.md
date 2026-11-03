@@ -13,6 +13,8 @@
  │   · rejects files not marked synthetic        │            │  marker) and served from memory          │
  │ lib/releaseDesk.ts  "./intel/*.json"   ──────────────────► │ everything else under /data/ → 404       │
  │   · rejects non-official source URLs          │            └──────────────────────────────────────────┘
+ │ lib/releaseObservations.ts (Official Values)  │
+ │   · fails closed unless the desk agrees       │
  └──────────────────────────────────────────────┘                              ▲
                                                                 demo-data/  (terminal_demo.generate, seeded)
 ```
@@ -52,7 +54,7 @@
   | Mode | Includes |
   |---|---|
   | `demo` (default) | Simulated bars, illustrative research figures and their manifest |
-  | `excluded` | Release-desk metadata only |
+  | `excluded` | Release-desk metadata only. The Official Values tab isn't offered, and the build removes its file from `web/out` |
 
   A panel whose file isn't in the mode shows a "not included" notice and never requests the file.
 - **Honest states.** `loadLocal` refuses any file without `synthetic: true`, so real-looking values can't appear under the demo labels.
@@ -66,6 +68,11 @@
   - any source URL isn't `https://www.bls.gov/` or `https://www.bea.gov/`.
 
   The optional snapshot manifest adds a change summary.
+- **Official values.** The Macro workspace's OFFICIAL VALUES tab is separate from the Release Schedule, which stays the default and doesn't change. The choice of tab is component state.
+  - `lib/releaseObservations.ts` reads `./intel/release_observations.v1.json`, only when the tab opens (Settings also reads it, to report its status).
+  - It's pure apart from that one request: a strict validator for exactly one release and four definitions, then `linkToDesk`, which compares the release with the separately loaded desk event.
+  - Any fault shows the reason and no figure, and doesn't affect the Release Schedule. The clock changes only the later-release notice, never whether a figure appears.
+  - Contract and rules are in [DATA.md](DATA.md).
 - **Build identity.** The build id is the SHA-256 of the `web/` file hash list, excluding dependencies and build output. Identical sources give the same id in any clone.
 
 ## Local server (`terminal_demo/serve.py`)
@@ -96,7 +103,10 @@ The generator is deterministic and reads no files (a test checks this). The vali
 | `test_demo_data.py` | Determinism, record validity, rejection of malformed records |
 | `test_server.py` | Real server processes: allowlisted bytes and headers, refused paths, symlink escapes, methods, no path leakage, loopback only, every fail-closed startup case |
 | `test_repository_scan.py` | Tracked files contain no personal paths, emails, credentials, nested `.git`, provider endpoints or third-party data |
-| `browser/smoke.mjs` | Headless Chrome over CDP against the built app, including missing-data scenarios, the local import (I1–I12) and price analytics (A1–A15) |
+| `browser/smoke.mjs` | Headless Chrome over CDP against the built app, including missing-data scenarios, the local import (I1–I12), price analytics (A1–A15) and official values (V1–V11, F9–F11) |
 | `import/import.test.mjs` | Node test runner on `web/lib/importData.ts`: valid and invalid fixtures, CSV grammar, limits, OHLC rules |
 | `analytics/analytics.test.mjs` | Node test runner on `web/lib/analytics.ts`: hand-derived values, minimum-data guards, gaps, refusal of unvalidated input |
 | `test_analytics_oracle.py` | Recomputes the analytics answers in exact rational arithmetic, sharing no code with the implementation |
+| `test_release_observations.py` | The four official figures, their basis, source location and publication time, against expected values written by hand; the desk file's hash |
+| `observations/observations.test.mjs` | Node test runner on `web/lib/releaseObservations.ts`: refused files, the desk link, stale versus unconfirmed, the injected clock |
+| `browser/excluded_mode.mjs` | A metadata-only build: no tab, no request and no file (Y1–Y5) |

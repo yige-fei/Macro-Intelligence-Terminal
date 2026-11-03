@@ -5,7 +5,8 @@
 //
 // Starts its own loopback servers (python3 -m terminal_demo.serve) on free ports: one with demo-data/, and others with
 // temporary, deliberately broken data (missing research, missing market data, an empty instrument; OS-P2A: event
-// snapshot mismatch, a missing event bar, a missing release-desk export, a missing overlay file).
+// snapshot mismatch, a missing event bar, a missing release-desk export, a missing overlay file; MN-1: official values
+// that are missing, malformed or contradicted by the desk).
 // Expected values are read independently from demo-data/. Exit code 0 only if every check passes; 2 if no browser.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -788,6 +789,9 @@ try {
   await page.shot(join(OUT, "02_research.png"));
 
   // ---------------------------------------------------------------- Macro release desk
+  const OBS_FILE = "/intel/release_observations.v1.json";
+  const obsRequests = () => page.log.requests.filter((u) => new URL(u).pathname === OBS_FILE).length;
+  const obsBeforeMacro = obsRequests(); // Settings has already read the file in the navigation check above
   await page.goto(O + "?ws=macro", 3500);
   await waitFor(page, `document.querySelector('[data-testid="release-schedule"]')`);
   const desk = await page.evaluate(`({ mode: document.querySelector('[data-testid="desk-mode"]')?.dataset.mode, title: document.querySelector('[data-testid="snapshot-title"]')?.innerText,
@@ -796,6 +800,99 @@ try {
   check("macro", "D1", "Release desk shows 38 real official-metadata events, labelled real and never simulated",
     desk.mode === "SOURCE_DERIVED" && desk.title?.startsWith("REAL OFFICIAL METADATA") && desk.rows === 38 && desk.badge?.startsWith("REAL OFFICIAL METADATA") && desk.doc && !desk.simulated, desk);
   await page.shot(join(OUT, "03_macro.png"));
+
+  // ---------------------------------------------------------------- MN-1: official values (expected values typed from the release, not read from the file)
+  const OFFICIAL = [
+    ["BLS.CPI.2026-09.CPIU_ALL_ITEMS.PCT_1M_SA", "All items", "1-month", "Aug 2026 → Sep 2026", "0.6%", "Seasonally adjusted", "First published*", "Seasonally adjusted percent change, Aug. 2026-Sep. 2026"],
+    ["BLS.CPI.2026-09.CPIU_ALL_ITEMS.PCT_12M_NSA", "All items", "12-month", "Sep 2025 → Sep 2026", "3.7%", "Not seasonally adjusted", "First published†", "Unadjusted percent change, Sep. 2025-Sep. 2026"],
+    ["BLS.CPI.2026-09.CPIU_LESS_FOOD_ENERGY.PCT_1M_SA", "All items less food and energy", "1-month", "Aug 2026 → Sep 2026", "0.3%", "Seasonally adjusted", "First published*", "Seasonally adjusted percent change, Aug. 2026-Sep. 2026"],
+    ["BLS.CPI.2026-09.CPIU_LESS_FOOD_ENERGY.PCT_12M_NSA", "All items less food and energy", "12-month", "Sep 2025 → Sep 2026", "2.6%", "Not seasonally adjusted", "First published†", "Unadjusted percent change, Sep. 2025-Sep. 2026"],
+  ];
+  const obsAtSchedule = obsRequests() - obsBeforeMacro; // the default tab, loaded for D1 above, must not have asked for the figures
+  const scheduleBefore = await page.evaluate(`document.querySelector('[data-testid="release-schedule"]').innerText`);
+  const tabs = await page.evaluate(`[...document.querySelectorAll('nav[aria-label="Macro views"] > *')].map((e) => [e.innerText.trim(), e.getAttribute("aria-current")])`);
+  check("values", "V1", "Macro opens on the unchanged Release Schedule with its badge; the figures aren't requested until their tab is opened; the historical explorer link stays",
+    obsAtSchedule === 0 && JSON.stringify(tabs) === JSON.stringify([["RELEASE SCHEDULE", "page"], ["OFFICIAL VALUES", null], ["HISTORICAL EXPLORER (dataset not included) →", null]])
+    && /^REAL OFFICIAL METADATA · SCHEDULE & STATUS ONLY · NO VALUES · NOT LIVE$/.test(await text(page, ".hist-badge")) && /No economic values/.test(scheduleBefore) && !/0\.6%|3\.7%|2\.6%/.test(scheduleBefore),
+    { obsAtSchedule, tabs, badge: await text(page, ".hist-badge") });
+  const openValues = async () => { await page.clickEl(`document.querySelector('[data-testid="tab-values"]')`); return waitFor(page, `document.querySelector('[data-testid="official-values"], [data-testid="values-state"]')`); };
+  await openValues();
+  const valueRows = () => page.evaluate(`[...document.querySelectorAll('[data-testid="value-row"]')].map((r) => { const g = (id) => r.querySelector('[data-testid="value-' + id + '"]')?.innerText;
+    return [r.dataset.observation, r.cells[0].innerText, g("change"), g("period"), g("number"), g("basis"), g("status"), g("location")]; })`);
+  const vr = await valueRows();
+  check("values", "V2", "Exactly the four figures, each with its monthly or annual basis, period, seasonal treatment, status and exact Table 1 row and column",
+    vr.length === 4 && OFFICIAL.every(([id, row, change, period, value, basis, status, column], i) => JSON.stringify(vr[i].slice(0, 7)) === JSON.stringify([id, row, change, period, value, basis, status])
+      && vr[i][7] === `Table 1 · row “${row}” · column “${column}”`), vr);
+  const facts = await page.evaluate(`Object.fromEntries(["reference", "published", "document", "retrieved", "verified", "desk-link", "desk-age", "attribution", "table-name"].map((id) => [id, document.querySelector('[data-testid="values-' + id + '"]')?.innerText ?? null]))`);
+  check("values", "V3", "Reference month and official release time are separate facts; the time is shown in Eastern and Singapore time from the embargo line",
+    facts.reference === "September 2026 (the month measured, not the publication date)" && facts.published === "Wed 14 Oct 2026 08:30 EDT · Wed 14 Oct 2026 20:30 SGT · official time per the release's embargo line"
+    && facts.document === "USDL-26-1574 · CONSUMER PRICE INDEX – SEPTEMBER 2026" && facts["table-name"].includes("by expenditure category, September 2026"), facts);
+  const links = await page.evaluate(`[...document.querySelectorAll('[data-testid="values-source"] a')].map((a) => [a.href, a.target, a.rel])`);
+  const panelText = () => page.evaluate(`document.querySelector('[data-testid="official-values"]')?.innerText ?? ""`);
+  const vt = await panelText();
+  check("values", "V4", "Clickable archived BLS sources; source, verification and desk-check times are separate and dated; not presented as confirmed by a person",
+    JSON.stringify(links.map((l) => l[0])) === JSON.stringify(["https://www.bls.gov/news.release/archives/cpi_10142026.htm", "https://www.bls.gov/news.release/archives/cpi_10142026.pdf"]) && links.every((l) => l[1] === "_blank" && l[2].includes("noopener"))
+    && facts.retrieved.startsWith("2026-11-03 12:21Z") && /PDF SHA-256 d2fe7deb0ae8…/.test(facts.retrieved) && /No person has confirmed this yet\. Not continuously checked\.$/.test(facts.verified)
+    && facts["desk-link"].startsWith("BLS.CPI.2026-09 is confirmed in the desk") && facts["desk-age"].startsWith("2026-10-17 14:15Z") && /says nothing about whether this release was published/.test(facts["desk-age"]), { links, facts });
+  const revision = await text(page, '[data-testid="values-revision"]');
+  check("values", "V5", "The historical, not-live status and the adjusted and unadjusted revision notes are stated",
+    (await text(page, ".hist-badge")) === "OFFICIAL VALUES · SNAPSHOT · NOT LIVE" && /OFFICIAL VALUES · ORIGINAL RELEASE · HISTORICAL SNAPSHOT · NOT LIVE/.test(vt) && /not presented as the current rate of inflation/.test(vt)
+    && /other events have no figures/.test(vt) && /\* BLS says seasonally adjusted data "are subject to revision for up to 5 years/.test(revision ?? "") && /† BLS's CPI FAQ says CPI-U series "are final when issued"/.test(revision ?? ""), { vt, revision });
+  check("values", "V6", "Definitions, source notes and plain attribution are shown; no BLS logo, and nothing resembling a forecast, signal or market reading",
+    /Percent change from the same month a year earlier/.test(vt) && /It is not the 1-month figure annualised/.test(vt) && /BLS has adjusted the data for the usual seasonal pattern/.test(vt)
+    && /“NOTE: The Oct and Nov 2025 data values are not available due to the 2025 lapse in appropriations\.”/.test(vt) && /“NOTE: The Oct 2025 data values are not available due to the 2025 lapse in appropriations\.”/.test(vt)
+    && /^Source: U\.S\. Bureau of Labor Statistics\. Copied by this project from the cited release; BLS has not reviewed this page\. Not affiliated with or endorsed by BLS\.$/.test(facts.attribution)
+    && !/\b(latest|forecast|signal|beat|miss|consensus|surprise|predict|buy|sell|bullish|bearish)\w*/i.test(vt) && (await page.evaluate(`document.querySelectorAll('[data-testid="official-values"] img, [data-testid="official-values"] canvas, [data-testid="official-values"] svg').length`)) === 0, vt);
+  const figureColour = await page.evaluate(`(() => { const resolve = (v) => { const s = document.createElement("span"); s.style.color = "var(" + v + ")"; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; };
+    return { up: resolve("--up"), down: resolve("--down"), text: resolve("--text"), figures: [...document.querySelectorAll('[data-testid="value-number"] b')].map((b) => getComputedStyle(b).color) }; })()`);
+  check("values", "V7", "Figures use the neutral text colour, not the market up and down colours", figureColour.figures.length === 4 && figureColour.figures.every((c) => c === figureColour.text && c !== figureColour.up && c !== figureColour.down), figureColour);
+  await page.shot(join(OUT, "20_official_values_1440.png"));
+  await page.evaluate(`document.querySelector('[data-testid="values-provenance"]').scrollIntoView()`); await sleep(200);
+  await page.shot(join(OUT, "20b_official_values_1440_lower.png"));
+  await page.viewport(1024, 800); await sleep(600);
+  const v1024 = await page.evaluate(`(() => { const t = document.querySelector('[data-testid="values-table"]'), w = t.parentElement; const cells = [...t.querySelectorAll("td, th")];
+    return { overflow: document.documentElement.scrollWidth - window.innerWidth, tableOverflow: w.scrollWidth - w.clientWidth, clipped: cells.filter((c) => c.getBoundingClientRect().right > w.getBoundingClientRect().right + 1).length }; })()`);
+  await page.evaluate(`document.querySelector('[data-testid="tab-values"]').scrollIntoView()`); await sleep(200);
+  await page.shot(join(OUT, "21_official_values_1024.png"));
+  await page.evaluate(`document.querySelector('[data-testid="values-provenance"]').scrollIntoView()`); await sleep(200);
+  await page.shot(join(OUT, "21b_official_values_1024_lower.png"));
+  await page.viewport(1440, 790); await sleep(400);
+  check("values", "V8", "At 1024 px there is no page overflow and every table column is visible without sideways scrolling", v1024.overflow <= 0 && v1024.tableOverflow <= 0 && v1024.clipped === 0, v1024);
+  await page.clickEl(`document.querySelector('[data-testid="tab-schedule"]')`); await sleep(500);
+  const scheduleAfter = await page.evaluate(`document.querySelector('[data-testid="release-schedule"]')?.innerText ?? ""`);
+  const rowsAfter = await page.evaluate(`document.querySelectorAll('[data-testid^="family-"] tbody tr').length`);
+  const badgeAfter = await text(page, ".hist-badge");
+  await page.clickEl(`[...document.querySelectorAll('nav[aria-label="Workspaces"] a')].find(a => a.innerText.trim() === "RESEARCH")`); await sleep(900);
+  const wsAfterNav = await page.evaluate("new URLSearchParams(location.search).get('ws')");
+  await page.evaluate("history.back()"); await sleep(900);
+  const backTabs = await page.evaluate(`[...document.querySelectorAll('nav[aria-label="Macro views"] > *')].map((e) => e.getAttribute("aria-current"))`);
+  const storedValues = await page.evaluate(`JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage })`);
+  check("values", "V9", "Returning to Release Schedule shows it unchanged (38 events, same text, same badge); header navigation and Back still work and Macro reopens on the schedule; nothing about the tab or figures is stored",
+    scheduleAfter === scheduleBefore && rowsAfter === 38 && /^REAL OFFICIAL METADATA/.test(badgeAfter ?? "") && wsAfterNav === "research" && JSON.stringify(backTabs) === JSON.stringify(["page", null, null]) && !/observation|official|USDL/i.test(storedValues),
+    { same: scheduleAfter === scheduleBefore, rowsAfter, badgeAfter, wsAfterNav, backTabs, storedValues });
+  // A controlled clock on both sides of the next scheduled CPI (only Date.now is replaced; the page is reloaded with it).
+  const atClock = async (iso) => {
+    const { result } = await page.send("Page.addScriptToEvaluateOnNewDocument", { source: `{ const t = ${Date.parse(iso)}; Date.now = () => t; }` });
+    await page.goto(O + "?ws=macro", 2500); await openValues();
+    const seen = { later: await page.evaluate(`(() => { const n = document.querySelector('[data-testid="later-notice"]'); return n ? [n.dataset.later, n.innerText] : null; })()`), rows: (await valueRows()).map((r) => r[4]) };
+    await page.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: result.identifier });
+    return seen;
+  };
+  const clockBefore = await atClock("2026-11-10T13:29:00Z"), clockAfter = await atClock("2026-11-10T13:31:00Z");
+  const FOUR = JSON.stringify(["0.6%", "3.7%", "0.3%", "2.6%"]);
+  check("values", "V10", "Before the next scheduled CPI the desk's date is given; after it, a later release may exist; the figures themselves never change with the clock",
+    clockBefore.later?.[0] === "not_due" && /Oct 2026 CPI, scheduled for Tue 10 Nov 2026 08:30 EST\. This snapshot will not include it\./.test(clockBefore.later[1]) && !/may exist/.test(clockBefore.later[1])
+    && clockAfter.later?.[0] === "may_exist" && /A later CPI release may exist; this snapshot does not include it\./.test(clockAfter.later[1]) && JSON.stringify(clockBefore.rows) === FOUR && JSON.stringify(clockAfter.rows) === FOUR, { clockBefore, clockAfter });
+  const settingsObs = async () => { await page.goto(O + "?ws=settings", 2500); return page.evaluate(`[...document.querySelectorAll('[data-testid="data-row-observations"] td')].map((td) => td.innerText)`); };
+  const obsRow = await settingsObs();
+  await page.shot(join(OUT, "24_settings.png"));
+  await page.goto(O, 2500);
+  await page.shot(join(OUT, "23_home.png"));
+  const homeMacro = await page.evaluate(`[...document.querySelectorAll('[aria-label="Product areas"] > li')].map(li => li.innerText).find((c) => /macro news/i.test(c))`);
+  const homeIntro = await text(page, '[data-testid="home-intro"]');
+  check("values", "V11", "Home and Settings separate the metadata-only desk from the four archived figures and don't imply every event has values",
+    obsRow[2] === "INCLUDED · ARCHIVED SNAPSHOT" && /Four figures for September 2026/.test(obsRow[3] ?? "") && /other release-desk events have no figures/.test(obsRow[3] ?? "")
+    && /four figures from one archived CPI release \(September 2026\)/.test(homeMacro ?? "") && /schedule's events carry no economic values; those four CPI figures are the only ones/.test(homeMacro ?? "") && /four CPI figures from one archived BLS release/.test(homeIntro ?? ""), { obsRow, homeMacro, homeIntro });
 
   // ---------------------------------------------------------------- Settings
   await page.goto(O + "?ws=settings", 3000);
@@ -922,6 +1019,69 @@ try {
   check("failure", "F8", "Overlay data missing: an explicit error and no markers; the demo set still works",
     no.err.includes("Missing local data file event_overlay_prices.json (HTTP 404)") && no.root.markers === "0" && no.root.bars === "0"
     && demoStill.dataset === "demo" && Number(demoStill.bars) > 0, { no, demoStill });
+  // MN-1 negative cases: one docroot whose two intel files are rewritten between requests (the server reads them from disk, no-store).
+  const vRoot = join(TMP, "docroot-values");
+  cpSync(join(REPO, "web", "out"), vRoot, { recursive: true });
+  const vServer = await serve(join(REPO, "demo-data"), vRoot);
+  servers.push(vServer);
+  const vObsPath = join(vRoot, "intel", "release_observations.v1.json"), vDeskPath = join(vRoot, "intel", "release_desk.v1.json");
+  const obsBody = readFileSync(vObsPath), deskBody = readFileSync(vDeskPath);
+  const edit = (body, change) => { const d = JSON.parse(body.toString()); change(d); return JSON.stringify(d); };
+  /** The values tab and the schedule, with the two files as given. */
+  async function valuesCase(obs, desk = deskBody) {
+    rmSync(vObsPath, { force: true }); rmSync(vDeskPath, { force: true });
+    if (obs !== null) writeFileSync(vObsPath, obs);
+    if (desk !== null) writeFileSync(vDeskPath, desk);
+    await page.goto(vServer.origin + "?ws=macro", 2200);
+    await page.clickEl(`document.querySelector('[data-testid="tab-values"]')`);
+    await waitFor(page, `document.querySelector('[data-testid="official-values"], [data-testid="values-state"]')`);
+    const seen = await page.evaluate(`(() => { const s = document.querySelector('[data-testid="values-state"]'); const m = document.querySelector("main");
+      return { state: s?.dataset.state ?? null, text: s?.innerText ?? null, rows: document.querySelectorAll('[data-testid="value-row"]').length, figures: /\\b(0\\.6|3\\.7|0\\.3|2\\.6)%/.test(m.innerText), badge: document.querySelector(".hist-badge")?.innerText }; })()`);
+    await page.clickEl(`document.querySelector('[data-testid="tab-schedule"]')`);
+    await waitFor(page, `document.querySelector('[data-testid="release-schedule"], [data-testid="desk-invalid"]')`);
+    seen.scheduleRows = await page.evaluate(`document.querySelectorAll('[data-testid^="family-"] tbody tr').length`);
+    return seen;
+  }
+  const deskEvent = (d) => d.events.find((e) => e.event_id === "BLS.CPI.2026-09");
+  const vCases = {
+    missing: [null, deskBody, "none", /No official values are included in this build/, 38],
+    notJson: ["<html>not json</html>", deskBody, "invalid", /could not be used \(not JSON\)/, 38],
+    badValue: [edit(obsBody, (d) => { d.releases[0].observations[0].value_text = "NOT_A_NUMBER"; }), deskBody, "invalid", /value is not a decimal as printed/, 38],
+    duplicate: [edit(obsBody, (d) => { d.releases[0].observations[1] = d.releases[0].observations[0]; }), deskBody, "invalid", /duplicate observation id/, 38],
+    badUrl: [edit(obsBody, (d) => { d.releases[0].document_url = "https://www.bls.gov/news.release/cpi.nr0.htm"; }), deskBody, "invalid", /approved BLS archive/, 38],
+    wrongEvent: [obsBody, edit(deskBody, (d) => { deskEvent(d).event_id = "BLS.CPI.2026-09X"; }), "withheld", /no event BLS\.CPI\.2026-09\. This does not mean the release was not published/, 38],
+    wrongDoc: [obsBody, edit(deskBody, (d) => { deskEvent(d).publication.evidence[0].document_id = "USDL-26-0000"; }), "withheld", /Document id differs: desk USDL-26-0000, this file USDL-26-1574/, 38],
+    wrongTime: [obsBody, edit(deskBody, (d) => { deskEvent(d).publication.official_release_time.utc = "2026-10-14T13:30:00Z"; }), "withheld", /Official time differs/, 38],
+    unconfirmed: [obsBody, edit(deskBody, (d) => { deskEvent(d).desk_status = "VERIFICATION_FAILED"; deskEvent(d).publication.status = "DUE_UNCONFIRMED"; }), "withheld", /status VERIFICATION_FAILED.*does not mean the release was not published/s, 38],
+    conflict: [obsBody, edit(deskBody, (d) => { deskEvent(d).conflicts = [{ field: "schedule.date", first_seen_at_utc: "2026-10-17T00:00:00Z", resolved: false, claims: [] }]; }), "withheld", /unresolved conflict/, 38],
+    deskMissing: [obsBody, null, "withheld", /release-desk export is not available, so publication can't be confirmed/, 0],
+  };
+  const vSeen = {};
+  for (const [name, [obs, desk, state, pattern, schedule]] of Object.entries(vCases)) {
+    const s = await valuesCase(obs, desk);
+    vSeen[name] = { ...s, ok: s.state === state && pattern.test(s.text ?? "") && s.rows === 0 && !s.figures && s.scheduleRows === schedule && /The Release Schedule tab is not affected/.test(s.text ?? "") };
+  }
+  check("failure", "F9", "Official values fail closed: a missing, malformed or duplicate file, a bad source URL, a contradicting desk event, document or time, an unconfirmed or conflicting publication, or a missing desk each give the reason and no figure, and the schedule still works where its own file exists",
+    Object.values(vSeen).every((x) => x.ok), vSeen);
+  rmSync(vDeskPath, { force: true }); writeFileSync(vDeskPath, edit(deskBody, (d) => { deskEvent(d).publication.evidence[0].document_id = "USDL-26-0000"; }));
+  await page.goto(vServer.origin + "?ws=macro", 2200); await page.clickEl(`document.querySelector('[data-testid="tab-values"]')`); await sleep(800);
+  await page.shot(join(OUT, "22_official_values_withheld.png"));
+  // Stale desk metadata: a confirmed release stays shown, and the check's age isn't presented as evidence about publication.
+  const staleSeen = await (async () => {
+    writeFileSync(vObsPath, obsBody);
+    writeFileSync(vDeskPath, edit(deskBody, (d) => { deskEvent(d).retrieval.state = "STALE"; }));
+    const { result } = await page.send("Page.addScriptToEvaluateOnNewDocument", { source: `{ const t = ${Date.parse("2031-01-01T00:00:00Z")}; Date.now = () => t; }` });
+    await page.goto(vServer.origin + "?ws=macro", 2200); await page.clickEl(`document.querySelector('[data-testid="tab-values"]')`); await waitFor(page, `document.querySelector('[data-testid="official-values"]')`);
+    const out = { rows: await page.evaluate(`[...document.querySelectorAll('[data-testid="value-number"]')].map((c) => c.innerText)`), age: await text(page, '[data-testid="values-desk-age"]'), all: await page.evaluate(`document.querySelector('[data-testid="official-values"]').innerText`), later: await page.evaluate(`document.querySelector('[data-testid="later-notice"]').dataset.later`) };
+    await page.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: result.identifier });
+    return out;
+  })();
+  check("failure", "F10", "A stale desk check on a confirmed release: the figures stay, its age is stated, and it isn't read as non-publication",
+    JSON.stringify(staleSeen.rows) === JSON.stringify(["0.6%", "3.7%", "0.3%", "2.6%"]) && /days ago\. This shows how old the check is\. It says nothing about whether this release was published\.$/.test(staleSeen.age ?? "") && staleSeen.later === "may_exist"
+    && !/unpublished|was not published|not been published/i.test(staleSeen.all), { rows: staleSeen.rows, age: staleSeen.age, later: staleSeen.later });
+  const vReq = page.log.requestDetails.filter((r) => r.url.endsWith("/intel/release_observations.v1.json"));
+  check("failure", "F11", "The only figures request is a same-origin GET with no body; nothing external was requested in the whole run",
+    vReq.length > 0 && vReq.every((r) => r.method === "GET" && !r.body && /^http:\/\/127\.0\.0\.1:\d+\//.test(r.url)) && external(page.log.requests, "http://127.0.0.1:").length === 0, { vReq: vReq.slice(0, 2), ext: external(page.log.requests, "http://127.0.0.1:") });
   check("failure", "F4", "Failure scenarios raised no exceptions", page.log.exceptions.length === 0, page.log.exceptions);
 } catch (e) {
   check("harness", "E0", "Harness completed without an internal error", false, String(e?.stack ?? e));

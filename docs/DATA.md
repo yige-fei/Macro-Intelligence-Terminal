@@ -123,12 +123,47 @@ Every served file must carry `"synthetic": true`. Research files must also carry
 
 **The collector isn't in this repository.** It needs an approval file and a contact identity for its requests, and packaging it is a separate, later task. This repository never fetches from BLS or BEA.
 
+## Official values (`web/public/intel/`)
+
+`release_observations.v1.json` is contract `macro_release_observations 1.0.0`. It's separate from the release desk, whose export and no-values policy don't change.
+
+**Content:** CPI for All Urban Consumers (CPI-U), U.S. city average, reference month September 2026, from BLS news release USDL-26-1574, published at 8:30 a.m. ET on 14 October 2026.
+
+| Table 1 row | Table 1 column | Basis | Value |
+|---|---|---|---|
+| All items | Seasonally adjusted percent change, Aug. 2026-Sep. 2026 | Seasonally adjusted | 0.6 |
+| All items | Unadjusted percent change, Sep. 2025-Sep. 2026 | Not seasonally adjusted | 3.7 |
+| All items less food and energy | Seasonally adjusted percent change, Aug. 2026-Sep. 2026 | Seasonally adjusted | 0.3 |
+| All items less food and energy | Unadjusted percent change, Sep. 2025-Sep. 2026 | Not seasonally adjusted | 2.6 |
+
+**What "first published" means here:**
+- Each value is copied as printed in that dated release. None is calculated.
+- BLS says seasonally adjusted data "are subject to revision for up to 5 years", so its current tables may later differ from 0.6 and 0.3.
+- BLS says CPI-U series "are final when issued", apart from any correction it issues.
+- This is one release, not a current or continuing series. The BLS API isn't used, because its documentation gives no way to establish a first-published value.
+
+**Provenance:**
+- `document_url` and `document_pdf_url` are the dated archive copies, not the BLS page that always shows the most recent release.
+- The file records the retrieval and verification times, how each was done and the SHA-256 of the PDF checked. The PDF itself isn't in this repository.
+- Its figures were checked by an AI coding agent. The file says no person has confirmed them, and that wording changes only once one has.
+- Nothing fetches or refreshes this file.
+
+**When a figure is shown.** `lib/releaseObservations.ts` allows only this release and these four definitions. Any fault refuses the whole file: a missing or unknown field, a duplicate, a malformed value, or a different URL, table, row, column or seasonal basis. It then requires the separately loaded desk event `BLS.CPI.2026-09` to be confirmed, with no unresolved conflict and the same reference month, document id and official time. If they disagree, neither source wins: the figures are withheld and the reason is shown.
+
+**Check age and publication are separate facts.** An old desk check doesn't withhold a confirmed release, and a withheld figure isn't evidence that a release wasn't published. Once a later CPI release is confirmed or its scheduled time has passed, the tab says a later release may exist.
+
+**Reuse:** BLS: "everything that we publish … is in the public domain", except previously copyrighted photographs and illustrations; please cite BLS. That statement doesn't address use outside the United States. BLS's emblem and logo aren't used. BLS's API terms require API users to state that BLS.gov "cannot vouch" for retrieved data; this project doesn't use the API, so the tab says instead that BLS hasn't reviewed the page.
+
+**Citation:** Source: U.S. Bureau of Labor Statistics.
+
+**Metadata-only builds** (`TERMINAL_DATA_MODE=excluded`) don't offer the tab or request the file, and the build removes it from `web/out`.
+
 ## Not included
 
 - Market prices from any provider.
 - FRED/ALFRED series.
 - Cboe VIX.
-- Point-in-time macro observations.
+- Point-in-time macro observations, or any official figure other than the four above.
 - The author's private research data and results.
 
 An open-source licence wouldn't grant rights in such data. Its use depends on each provider's terms.

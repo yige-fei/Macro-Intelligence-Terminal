@@ -26,8 +26,8 @@ const CARDS: Card[] = [
     title: "Macro News & Events",
     status: "RELEASE DESK · REAL METADATA",
     statusTone: "ok",
-    now: "Release schedule for CPI, Employment Situation and GDP Advance: official schedule and publication status from BLS and BEA pages, as a dated snapshot.",
-    notYet: "No economic values, live feed or news; nothing is fetched automatically. The point-in-time macro explorer's dataset is not included.",
+    now: "Release schedule for CPI, Employment Situation and GDP Advance: official schedule and publication status from BLS and BEA pages, as a dated snapshot. A separate Official Values tab shows four figures from one archived CPI release (September 2026).",
+    notYet: "The schedule's events carry no economic values; those four CPI figures are the only ones. No live feed or news; nothing is fetched automatically. The point-in-time macro explorer's dataset is not included.",
     action: { label: "Open release schedule", ws: "macro" },
   },
   {
@@ -56,6 +56,10 @@ const CARDS: Card[] = [
 ];
 
 const NOT_INCLUDED: Record<string, Partial<Card>> = {
+  "Macro News & Events": {
+    now: "Release schedule for CPI, Employment Situation and GDP Advance: official schedule and publication status from BLS and BEA pages, as a dated snapshot.",
+    notYet: "No economic values, live feed or news; nothing is fetched automatically. The point-in-time macro explorer's dataset is not included.",
+  },
   "Market Intelligence": {
     status: "DATASET NOT INCLUDED",
     now: "Your saved workspace layout: daily chart panels with indicators, the point-in-time macro panel and sources.",
@@ -102,7 +106,7 @@ export default function Home() {
             <p className="dim text-[12px]" data-testid="home-intro">
               {HISTORICAL_DATA === "excluded"
                 ? "Local terminal. This build contains official release-desk metadata only. Nothing here is live, and nothing here is a trading signal."
-                : "Local portfolio demo. The release metadata (BLS, BEA) is real; the market prices and research figures are simulated. Nothing here is live, and nothing here is a trading signal."}
+                : "Local portfolio demo. The release metadata (BLS, BEA) is real, as are four CPI figures from one archived BLS release; the market prices and research figures are simulated. Nothing here is live, and nothing here is a trading signal."}
             </p>
           </div>
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="Product areas">
