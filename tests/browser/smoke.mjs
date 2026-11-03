@@ -834,6 +834,14 @@ try {
     JSON.stringify(links.map((l) => l[0])) === JSON.stringify(["https://www.bls.gov/news.release/archives/cpi_10142026.htm", "https://www.bls.gov/news.release/archives/cpi_10142026.pdf"]) && links.every((l) => l[1] === "_blank" && l[2].includes("noopener"))
     && facts.retrieved.startsWith("2026-11-03 12:21Z") && /PDF SHA-256 d2fe7deb0ae8…/.test(facts.retrieved) && /No person has confirmed this yet\. Not continuously checked\.$/.test(facts.verified)
     && facts["desk-link"].startsWith("BLS.CPI.2026-09 is confirmed in the desk") && facts["desk-age"].startsWith("2026-10-17 14:15Z") && /says nothing about whether this release was published/.test(facts["desk-age"]), { links, facts });
+  const prov = await page.evaluate(`({ labels: [...document.querySelectorAll('[data-testid="values-provenance"] dt')].map((d) => d.innerText), facts: [...document.querySelectorAll('[data-testid="values-facts"] dt')].map((d) => d.innerText),
+    human: document.querySelector('[data-testid="values-human"]')?.innerText, humanState: document.querySelector('[data-testid="values-human"]')?.dataset.human, limit: document.querySelector('[data-testid="values-copy-limit"]')?.innerText,
+    disclaimer: document.querySelector('[data-testid="values-disclaimer"]')?.innerText, terms: [...document.querySelectorAll('[data-testid="values-disclaimer"] a')].map((a) => [a.href, a.target, a.rel]) })`);
+  check("values", "V12", "BLS's disclaimer is verbatim and linked, without implying the API; original release, archive retrieval, agent verification and outstanding human verification are separate",
+    prov.disclaimer?.startsWith("“BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov.” (BLS terms of service ↗)") && /not through the BLS API\.$/.test(prov.disclaimer)
+    && prov.terms.length === 1 && prov.terms[0][0] === "https://www.bls.gov/developers/termsOfService.htm" && prov.terms[0][1] === "_blank" && prov.terms[0][2].includes("noopener")
+    && prov.facts.includes("Original release") && ["Archived copy retrieved", "Agent verification", "Human verification"].every((l) => prov.labels.includes(l))
+    && prov.humanState === "outstanding" && /^Outstanding\./.test(prov.human ?? "") && /Nothing here shows it is byte-identical/.test(prov.limit ?? ""), prov);
   const revision = await text(page, '[data-testid="values-revision"]');
   check("values", "V5", "The historical, not-live status and the adjusted and unadjusted revision notes are stated",
     (await text(page, ".hist-badge")) === "OFFICIAL VALUES · SNAPSHOT · NOT LIVE" && /OFFICIAL VALUES · ORIGINAL RELEASE · HISTORICAL SNAPSHOT · NOT LIVE/.test(vt) && /not presented as the current rate of inflation/.test(vt)

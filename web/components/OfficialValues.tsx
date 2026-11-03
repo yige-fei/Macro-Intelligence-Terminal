@@ -7,7 +7,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { fmtEastern, fmtSingapore, fmtUtcShort, loadReleaseDesk, periodLabel, type DeskLoad } from "../lib/releaseDesk";
-import { linkToDesk, loadReleaseObservations, type LaterRelease, type Observation, type ObservationsFile } from "../lib/releaseObservations";
+import { humanConfirmed, linkToDesk, loadReleaseObservations, type LaterRelease, type Observation, type ObservationsFile } from "../lib/releaseObservations";
+
+const BLS_TERMS_URL = "https://www.bls.gov/developers/termsOfService.htm";
+const BLS_DISCLAIMER = "BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov.";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const longMonth = (period: string) => `${MONTHS[Number(period.slice(5, 7)) - 1]} ${period.slice(0, 4)}`;
@@ -74,7 +77,7 @@ function Values({ data, desk, nowMs }: { data: ObservationsFile; desk: DeskLoad;
         <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-[11px] px-3 py-2" data-testid="values-facts">
           <dt className="dim">Reference month</dt>
           <dd data-testid="values-reference">{longMonth(r.reference_period.period)} (the month measured, not the publication date)</dd>
-          <dt className="dim">Officially published</dt>
+          <dt className="dim">Original release</dt>
           <dd data-testid="values-published">{fmtEastern(r.published.utc)} · {fmtSingapore(r.published.utc)} · official time per the release&apos;s embargo line</dd>
           <dt className="dim">Document</dt>
           <dd data-testid="values-document">{r.document_id} · {r.document_title}</dd>
@@ -120,10 +123,17 @@ function Values({ data, desk, nowMs }: { data: ObservationsFile; desk: DeskLoad;
         </dl>
       </section>
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-[11px] border border-[var(--border)] px-3 py-2" data-testid="values-provenance">
-        <dt className="dim">Source copy retrieved</dt>
-        <dd data-testid="values-retrieved">{fmtUtcShort(r.retrieved_at_utc)} · {daysAgo(r.retrieved_at_utc, nowMs)} · PDF SHA-256 {r.source_document_sha256.slice(0, 12)}…</dd>
-        <dt className="dim">Checked against the source</dt>
+        <dt className="dim">Archived copy retrieved</dt>
+        <dd data-testid="values-retrieved">
+          {fmtUtcShort(r.retrieved_at_utc)} · {daysAgo(r.retrieved_at_utc, nowMs)} · PDF SHA-256 {r.source_document_sha256.slice(0, 12)}…{" "}
+          <span data-testid="values-copy-limit">This copy was retrieved after the original release. Nothing here shows it is byte-identical to the file BLS posted that day; “first published” rests on BLS&apos;s dated archive.</span>
+        </dd>
+        <dt className="dim">{humanConfirmed(r) ? "Verification" : "Agent verification"}</dt>
         <dd data-testid="values-verified">{fmtUtcShort(r.verification.verified_at_utc)} · {daysAgo(r.verification.verified_at_utc, nowMs)}. {r.verification.method} Not continuously checked.</dd>
+        <dt className="dim">Human verification</dt>
+        <dd data-testid="values-human" data-human={humanConfirmed(r) ? "recorded" : "outstanding"}>
+          {humanConfirmed(r) ? "Recorded in this file; see the verification line above." : <b className="amber">Outstanding. An agent&apos;s check is not a person&apos;s confirmation.</b>}
+        </dd>
         <dt className="dim">Release desk link</dt>
         <dd data-testid="values-desk-link">{view.event.event_id} is confirmed in the desk; its reference month, document id and official time match this release.</dd>
         <dt className="dim">Desk&apos;s last page check</dt>
@@ -131,6 +141,9 @@ function Values({ data, desk, nowMs }: { data: ObservationsFile; desk: DeskLoad;
       </dl>
       <div className="dim text-[11px] flex flex-col gap-1" data-testid="values-footer">
         {r.source_notes.map((n) => <p key={n.location} data-testid="values-source-note">{n.location}, as printed: “{n.text}”</p>)}
+        <p className="text-[var(--text)]" data-testid="values-disclaimer">
+          “{BLS_DISCLAIMER}” (<Link href={BLS_TERMS_URL}>BLS terms of service ↗</Link>). This project took the release from BLS&apos;s website archive, not through the BLS API.
+        </p>
         <p data-testid="values-attribution">
           {data.attribution.join(" · ")}. Copied by this project from the cited release; BLS has not reviewed this page. Not affiliated with or endorsed by BLS.
         </p>

@@ -103,7 +103,7 @@ The generator is deterministic and reads no files (a test checks this). The vali
 | `test_demo_data.py` | Determinism, record validity, rejection of malformed records |
 | `test_server.py` | Real server processes: allowlisted bytes and headers, refused paths, symlink escapes, methods, no path leakage, loopback only, every fail-closed startup case |
 | `test_repository_scan.py` | Tracked files contain no personal paths, emails, credentials, nested `.git`, provider endpoints or third-party data |
-| `browser/smoke.mjs` | Headless Chrome over CDP against the built app, including missing-data scenarios, the local import (I1–I12), price analytics (A1–A15) and official values (V1–V11, F9–F11) |
+| `browser/smoke.mjs` | Headless Chrome over CDP against the built app, including missing-data scenarios, the local import (I1–I12), price analytics (A1–A15) and official values (V1–V12, F9–F11) |
 | `import/import.test.mjs` | Node test runner on `web/lib/importData.ts`: valid and invalid fixtures, CSV grammar, limits, OHLC rules |
 | `analytics/analytics.test.mjs` | Node test runner on `web/lib/analytics.ts`: hand-derived values, minimum-data guards, gaps, refusal of unvalidated input |
 | `test_analytics_oracle.py` | Recomputes the analytics answers in exact rational arithmetic, sharing no code with the implementation |

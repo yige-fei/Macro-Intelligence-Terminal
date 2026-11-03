@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const { APPROVED_OBSERVATIONS, laterRelease, linkToDesk, parseObservations, loadReleaseObservations } = await import(join(ROOT, "web", "lib", "releaseObservations.ts"));
+const { APPROVED_OBSERVATIONS, humanConfirmed, laterRelease, linkToDesk, parseObservations, loadReleaseObservations } = await import(join(ROOT, "web", "lib", "releaseObservations.ts"));
 const INTEL = join(ROOT, "web", "public", "intel");
 const read = (f) => JSON.parse(readFileSync(join(INTEL, f), "utf8"));
 const FILE = read("release_observations.v1.json");
@@ -215,6 +215,12 @@ test("loader: a missing file is 'none'; other failures are 'invalid'; the only U
     globalThis.fetch = realFetch;
   }
   assert.ok(seen.every(([url, init]) => url === "./intel/release_observations.v1.json" && init.cache === "no-store" && init.method === undefined && init.body === undefined));
+});
+
+test("human verification stays outstanding unless the file records a person's confirmation", () => {
+  assert.equal(humanConfirmed(release(FILE)), false);
+  assert.equal(humanConfirmed({ verification: { status: "UNKNOWN_STATUS" } }), false);
+  assert.equal(humanConfirmed({ verification: { status: "MANUALLY_VERIFIED_AGAINST_SOURCE" } }), true);
 });
 
 test("the library holds no figures: values live only in the data file", () => {

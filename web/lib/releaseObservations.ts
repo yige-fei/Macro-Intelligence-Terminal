@@ -59,6 +59,8 @@ export const APPROVED_OBSERVATIONS: ReadonlyArray<{ id: string; label: string; m
   { id: "BLS.CPI.2026-09.CPIU_LESS_FOOD_ENERGY.PCT_12M_NSA", label: "All items less food and energy", metric: "PERCENT_CHANGE_12M" },
 ];
 const VERIFIED = new Set(["AGENT_VERIFIED_AGAINST_SOURCE", "MANUALLY_VERIFIED_AGAINST_SOURCE"]);
+/** Whether the file records a person's confirmation. Any other status leaves human verification outstanding. */
+export const humanConfirmed = (r: { verification: { status: string } }): boolean => r.verification.status === "MANUALLY_VERIFIED_AGAINST_SOURCE";
 
 const VALUE_TEXT = /^-?\d+\.\d$/; // as printed in the release: one decimal place, a string so that it cannot drift through a float
 const UTC_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;

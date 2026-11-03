@@ -145,14 +145,20 @@ Every served file must carry `"synthetic": true`. Research files must also carry
 **Provenance:**
 - `document_url` and `document_pdf_url` are the dated archive copies, not the BLS page that always shows the most recent release.
 - The file records the retrieval and verification times, how each was done and the SHA-256 of the PDF checked. The PDF itself isn't in this repository.
-- Its figures were checked by an AI coding agent. The file says no person has confirmed them, and that wording changes only once one has.
+- Four dates and checks are kept apart:
+  - **Original release:** 14 October 2026, from the release's embargo line.
+  - **Archived copy retrieved:** 3 November 2026. Nothing shows this copy is byte-identical to the file BLS posted on release day; "first published" rests on BLS's dated archive.
+  - **Agent verification:** an AI coding agent checked the figures against that copy.
+  - **Human verification:** outstanding. The file says no person has confirmed the figures, and that wording changes only once one has.
 - Nothing fetches or refreshes this file.
 
 **When a figure is shown.** `lib/releaseObservations.ts` allows only this release and these four definitions. Any fault refuses the whole file: a missing or unknown field, a duplicate, a malformed value, or a different URL, table, row, column or seasonal basis. It then requires the separately loaded desk event `BLS.CPI.2026-09` to be confirmed, with no unresolved conflict and the same reference month, document id and official time. If they disagree, neither source wins: the figures are withheld and the reason is shown.
 
 **Check age and publication are separate facts.** An old desk check doesn't withhold a confirmed release, and a withheld figure isn't evidence that a release wasn't published. Once a later CPI release is confirmed or its scheduled time has passed, the tab says a later release may exist.
 
-**Reuse:** BLS: "everything that we publish … is in the public domain", except previously copyrighted photographs and illustrations; please cite BLS. That statement doesn't address use outside the United States. BLS's emblem and logo aren't used. BLS's API terms require API users to state that BLS.gov "cannot vouch" for retrieved data; this project doesn't use the API, so the tab says instead that BLS hasn't reviewed the page.
+**Reuse:** BLS: "everything that we publish … is in the public domain", except previously copyrighted photographs and illustrations; please cite BLS. That statement doesn't address use outside the United States. BLS's emblem and logo aren't used.
+
+**Disclaimer:** BLS's [terms of service](https://www.bls.gov/developers/termsOfService.htm) cover all content on BLS.gov. Under "Citing Data" they say users "must clearly state" that "BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov." The sentence before it addresses users of the public API, so its reach is unclear. The tab shows it verbatim with a link to the terms, and says that this project doesn't use the API.
 
 **Citation:** Source: U.S. Bureau of Labor Statistics.
 

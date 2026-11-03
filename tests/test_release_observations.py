@@ -98,6 +98,12 @@ class OfficialValues(unittest.TestCase):
         self.assertLessEqual(r["retrieved_at_utc"], r["verification"]["verified_at_utc"])
         self.assertTrue(r["verification"]["method"])
 
+    def test_records_agent_verification_and_no_human_sign_off(self):
+        r = self.release
+        self.assertEqual(r["retrieval_method"], "AGENT_FETCH_OF_OFFICIAL_ARCHIVE_PDF")
+        self.assertEqual(r["verification"]["status"], "AGENT_VERIFIED_AGAINST_SOURCE")
+        self.assertIn("No person has confirmed this yet.", r["verification"]["method"])
+
     def test_source_notes_are_verbatim(self):
         notes = [n["text"] for n in self.release["source_notes"]]
         self.assertEqual(notes, ["NOTE: The Oct and Nov 2025 data values are not available due to the 2025 lapse in appropriations.",
