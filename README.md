@@ -3,6 +3,11 @@
 An open-source research workspace for U.S. macroeconomic release events and daily price charts. You build it from
 source and run it on your own computer; there's no hosted demo or installer.
 
+**Project status: completed as a source-only portfolio project (November 2026).** The final scope has been
+published, and active feature development is concluded. This repository is retained as an engineering and research
+portfolio artifact, not a maintained live financial-data service. The [retrospective](#key-takeaways-prompt-engineering-and-evidence-first-development)
+explains what I learned and why the project stopped at this scope.
+
 **What it does today:**
 - **Official release calendar:** 38 CPI, Employment Situation and GDP Advance releases from the U.S. Bureau of Labor
   Statistics (BLS) and Bureau of Economic Analysis (BEA), from a pinned snapshot taken on 17 October 2026. Each event
@@ -18,8 +23,8 @@ source and run it on your own computer; there's no hosted demo or installer.
   a real model's output.
 
 **Not built:** live market feeds, automatically refreshed releases, macroeconomic figures beyond those four, an AI
-research assistant, a backtesting engine, trade execution, or a hosted demo or installer. Some of these are on the
-[roadmap](#roadmap-not-implemented).
+research assistant, a backtesting engine, trade execution, or a hosted demo or installer. See
+[what could have been built](#what-could-have-been-built) for possibilities, not a development commitment.
 
 Under the hood it's a static Next.js app built on [OpenTerminal](https://github.com/ErTasselli/OpenTerminal) and
 TradingView Lightweight Charts™, served by a small Python server that listens only on your own machine (127.0.0.1).
@@ -52,8 +57,8 @@ You need:
 - **Node 22 or newer.** Developed and tested with Node 26.0.0 and npm 11.12.1; `.nvmrc` says 26.
 - **Python 3.10 or newer.** Tested with 3.12.6.
 
-**Tested platform:** macOS 14 only, with Node 26.0.0, Python 3.12.6 and Chrome 155 (the automated browser checks drive
-Chrome).
+**Tested platform:** macOS 14 only, with Node 26.0.0, Python 3.12.6 and Chrome 155–156 (the automated browser checks drive
+Chrome; versions are from the project's verification receipts).
 - **Linux:** untested.
 - **Windows:** untested, and `npm run build` won't run in cmd or PowerShell (the npm scripts set an environment
   variable POSIX-style).
@@ -136,7 +141,7 @@ Regenerate with `python3 -m terminal_demo.generate` (seed `20261020`). Details: 
 **Rights:**
 - This repository contains **no** third-party market data and **no** FRED/ALFRED or Cboe data. Its only official economic figures are the four BLS CPI figures above, and BLS's public-domain statement doesn't address use outside the United States ([NOTICE.md](NOTICE.md)).
 - The project's MIT licence grants no rights in data from any provider; see [NOTICE.md](NOTICE.md).
-- Optional adapters for official sources are planned, not implemented. You can already chart your own daily CSV/JSON file in the browser ([docs/IMPORT.md](docs/IMPORT.md)); it stays under its own terms.
+- Optional adapters for official sources were considered but are not implemented. You can chart your own daily CSV/JSON file in the browser ([docs/IMPORT.md](docs/IMPORT.md)); it stays under its own terms.
 
 ## Research
 
@@ -152,13 +157,72 @@ The frontend is a static export (OpenTerminal workspace, Zustand store, react-gr
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Roadmap (not implemented)
+## Why development stopped at this scope
 
-1. Optional adapters for official direct sources (BLS, BEA, Federal Reserve Board), labelled "revised" until point-in-time vintages are reconstructed.
-2. Event-study views (the event overlay marks dates only; it measures nothing).
-3. More import formats (for example intraday bars), if there's a need; daily CSV/JSON import exists (docs/IMPORT.md).
-4. Strategy backtesting (a separate design).
-5. An evidence-grounded AI research assistant.
+The initial ambition was broader: a low-cost, accessible macro-financial research website combining official economic
+releases, real market data, historical event analysis, research findings and eventually AI-assisted interpretation.
+The project became a **public source-code release**, not an online financial-data product.
+
+The core constraint was **data rights and provenance**. Free access to a provider's information does not automatically
+grant permission to collect it automatically, store it, republish it or use it in every analytical setting. The
+historical market-data and private research inputs were not cleared for distribution, so they were deliberately
+excluded. The four BLS CPI observations and official release metadata were included under separately reviewed
+source and attribution conditions. This is not a claim that hosting a fictional-data-only site would be illegal;
+rather, a hosted version, broader data acquisition, cross-platform packaging and continuing operations were not
+completed or validated.
+
+I chose to stop expanding the project instead of indefinitely pursuing legal, engineering and maintenance work
+that offered diminishing learning value. **The project is complete for its declared source-only scope**, not for
+its original full product ambition.
+
+## What could have been built
+
+These are **unimplemented possibilities**, not advertised capabilities or a promise of future development:
+
+- **A try-online demonstration or packaged desktop app** using only approved data, with separate hosting,
+  dependency-security, accessibility and platform verification.
+- **Wider official macroeconomic coverage** beyond one historical CPI release: employment and GDP observations,
+  revision histories, corrections, freshness checks and a controlled update workflow.
+- **Real event-to-market studies** using appropriately licensed price history and a defensible historical event
+  calendar, with publication-time alignment and explicit limitations on causal interpretation.
+- **A grounded AI research assistant** that retrieves cited source facts and explains validated calculations,
+  rather than supplying unsupported numbers or signals from model memory.
+- **An auditable strategy/backtesting module**, separate from the historical ML research, with explicit
+  signal availability, fills, transaction costs and look-ahead safeguards.
+- **More platform coverage and reliability work**, including Linux/Windows testing and per-command timeouts
+  in the Chrome DevTools browser-test helper.
+
+None of these is implemented by this repository. The separate private macro-event ML research was **not merged**:
+its data and derived results were intentionally kept outside this public source release.
+
+## Key takeaways: prompt engineering and evidence-first development
+
+> **My biggest takeaway:** Prompt engineering is not about writing the longest or most impressive instruction.
+> It is about turning an ambiguous goal into a bounded, testable engineering task—and knowing when to stop.
+
+I used AI assistants for research, architecture review, code implementation, debugging and documentation. That
+experience taught me that **AI-assisted development still requires engineering judgment**:
+
+1. **A good prompt is a specification.** State the goal, existing architecture, permitted files and actions,
+   non-negotiable constraints, acceptance tests, required evidence and stop conditions. A clear handover matters
+   more than repeatedly asking an agent to "keep going".
+2. **Outputs are claims until checked.** A generated test report, screenshot description, citation or confident
+   explanation is not independent proof. I learned to compare exact Git commits, inspect the rendered interface,
+   check figures against primary documents and distinguish agent-reported, independently checked and owner-reviewed
+   evidence.
+3. **Verification should be proportional.** Pure functions, deliberately invalid fixtures, reproducible builds
+   and negative tests catch meaningful defects. But repeated audits for tiny wording changes can slow delivery
+   without improving confidence. A browser-test run also exposed why commands need timeouts and cleanup.
+4. **Data engineering includes rights and time semantics.** "Scheduled", "published", "retrieved", "revised"
+   and "verified" describe different events. Even accurate numbers become misleading when their date, adjustment,
+   vintage, provenance or permission to reuse them is unclear.
+5. **An honest limitation is a valid result.** Simulated prices were labelled as simulated; illustrative research
+   was not presented as actual model performance; source-usage uncertainty was documented rather than hidden.
+   A finished, modest, reproducible artifact is more useful than an indefinitely expanding project.
+
+The work was valuable for learning **prompt design, multi-agent collaboration, scoped autonomy, Git workflows,
+frontend integration, numerical validation, browser testing, provenance and technical trade-offs**. Equally, it
+taught me to recognize diminishing returns and close a project responsibly.
 
 ## Provenance and licence
 
