@@ -830,18 +830,19 @@ try {
   const links = await page.evaluate(`[...document.querySelectorAll('[data-testid="values-source"] a')].map((a) => [a.href, a.target, a.rel])`);
   const panelText = () => page.evaluate(`document.querySelector('[data-testid="official-values"]')?.innerText ?? ""`);
   const vt = await panelText();
-  check("values", "V4", "Clickable archived BLS sources; source, verification and desk-check times are separate and dated; not presented as confirmed by a person",
+  check("values", "V4", "Clickable archived BLS sources; source, agent verification and desk-check times are separate and dated",
     JSON.stringify(links.map((l) => l[0])) === JSON.stringify(["https://www.bls.gov/news.release/archives/cpi_10142026.htm", "https://www.bls.gov/news.release/archives/cpi_10142026.pdf"]) && links.every((l) => l[1] === "_blank" && l[2].includes("noopener"))
-    && facts.retrieved.startsWith("2026-11-03 12:21Z") && /PDF SHA-256 d2fe7deb0ae8…/.test(facts.retrieved) && /No person has confirmed this yet\. Not continuously checked\.$/.test(facts.verified)
+    && facts.retrieved.startsWith("2026-11-03 12:21Z") && /PDF SHA-256 d2fe7deb0ae8…/.test(facts.retrieved) && /An AI coding agent read Table 1, Table A and the narrative in the official PDF\. Not continuously checked\.$/.test(facts.verified)
     && facts["desk-link"].startsWith("BLS.CPI.2026-09 is confirmed in the desk") && facts["desk-age"].startsWith("2026-10-17 14:15Z") && /says nothing about whether this release was published/.test(facts["desk-age"]), { links, facts });
   const prov = await page.evaluate(`({ labels: [...document.querySelectorAll('[data-testid="values-provenance"] dt')].map((d) => d.innerText), facts: [...document.querySelectorAll('[data-testid="values-facts"] dt')].map((d) => d.innerText),
     human: document.querySelector('[data-testid="values-human"]')?.innerText, humanState: document.querySelector('[data-testid="values-human"]')?.dataset.human, limit: document.querySelector('[data-testid="values-copy-limit"]')?.innerText,
     disclaimer: document.querySelector('[data-testid="values-disclaimer"]')?.innerText, terms: [...document.querySelectorAll('[data-testid="values-disclaimer"] a')].map((a) => [a.href, a.target, a.rel]) })`);
-  check("values", "V12", "BLS's disclaimer is verbatim and linked, without implying the API; original release, archive retrieval, agent verification and outstanding human verification are separate",
+  check("values", "V12", "BLS's disclaimer is verbatim and linked, without implying the API; original release, archive retrieval, agent verification and the qualified owner attestation are separate",
     prov.disclaimer?.startsWith("“BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov.” (BLS terms of service ↗)") && /not through the BLS API\.$/.test(prov.disclaimer)
     && prov.terms.length === 1 && prov.terms[0][0] === "https://www.bls.gov/developers/termsOfService.htm" && prov.terms[0][1] === "_blank" && prov.terms[0][2].includes("noopener")
     && prov.facts.includes("Original release") && ["Archived copy retrieved", "Agent verification", "Human verification"].every((l) => prov.labels.includes(l))
-    && prov.humanState === "outstanding" && /^Outstanding\./.test(prov.human ?? "") && /Nothing here shows it is byte-identical/.test(prov.limit ?? ""), prov);
+    && prov.humanState === "owner-attested" && /^Project owner attested — 5 November 2026\./.test(prov.human ?? "") && /not the release date or the time of each check/.test(prov.human ?? "") && /not BLS, auditor, legal or regulatory approval/.test(prov.human ?? "")
+    && !/No person has confirmed/.test(vt) && /Nothing here shows it is byte-identical/.test(prov.limit ?? ""), prov);
   const revision = await text(page, '[data-testid="values-revision"]');
   check("values", "V5", "The historical, not-live status and the adjusted and unadjusted revision notes are stated",
     (await text(page, ".hist-badge")) === "OFFICIAL VALUES · SNAPSHOT · NOT LIVE" && /OFFICIAL VALUES · ORIGINAL RELEASE · HISTORICAL SNAPSHOT · NOT LIVE/.test(vt) && /not presented as the current rate of inflation/.test(vt)
@@ -1057,6 +1058,7 @@ try {
     badValue: [edit(obsBody, (d) => { d.releases[0].observations[0].value_text = "NOT_A_NUMBER"; }), deskBody, "invalid", /value is not a decimal as printed/, 38],
     duplicate: [edit(obsBody, (d) => { d.releases[0].observations[1] = d.releases[0].observations[0]; }), deskBody, "invalid", /duplicate observation id/, 38],
     badUrl: [edit(obsBody, (d) => { d.releases[0].document_url = "https://www.bls.gov/news.release/cpi.nr0.htm"; }), deskBody, "invalid", /approved BLS archive/, 38],
+    badAttestation: [edit(obsBody, (d) => { d.releases[0].human_verification.status = "AGENT_VERIFIED_AGAINST_SOURCE"; }), deskBody, "invalid", /invalid human verification record/, 38],
     wrongEvent: [obsBody, edit(deskBody, (d) => { deskEvent(d).event_id = "BLS.CPI.2026-09X"; }), "withheld", /no event BLS\.CPI\.2026-09\. This does not mean the release was not published/, 38],
     wrongDoc: [obsBody, edit(deskBody, (d) => { deskEvent(d).publication.evidence[0].document_id = "USDL-26-0000"; }), "withheld", /Document id differs: desk USDL-26-0000, this file USDL-26-1574/, 38],
     wrongTime: [obsBody, edit(deskBody, (d) => { deskEvent(d).publication.official_release_time.utc = "2026-10-14T13:30:00Z"; }), "withheld", /Official time differs/, 38],
@@ -1087,6 +1089,12 @@ try {
   check("failure", "F10", "A stale desk check on a confirmed release: the figures stay, its age is stated, and it isn't read as non-publication",
     JSON.stringify(staleSeen.rows) === JSON.stringify(["0.6%", "3.7%", "0.3%", "2.6%"]) && /days ago\. This shows how old the check is\. It says nothing about whether this release was published\.$/.test(staleSeen.age ?? "") && staleSeen.later === "may_exist"
     && !/unpublished|was not published|not been published/i.test(staleSeen.all), { rows: staleSeen.rows, age: staleSeen.age, later: staleSeen.later });
+  writeFileSync(vObsPath, edit(obsBody, (d) => { delete d.releases[0].human_verification; }));
+  writeFileSync(vDeskPath, deskBody);
+  await page.goto(vServer.origin + "?ws=macro", 2200); await page.clickEl(`document.querySelector('[data-testid="tab-values"]')`); await waitFor(page, `document.querySelector('[data-testid="official-values"]')`);
+  const unattested = await page.evaluate(`({ state: document.querySelector('[data-testid="values-human"]')?.dataset.human, human: document.querySelector('[data-testid="values-human"]')?.innerText, agent: document.querySelector('[data-testid="values-verified"]')?.innerText, rows: document.querySelectorAll('[data-testid="value-row"]').length, all: document.querySelector('[data-testid="official-values"]').innerText })`);
+  check("failure", "F12", "Agent verification without an owner attestation keeps the figures, stays outstanding and never shows the attestation",
+    unattested.state === "outstanding" && /^Outstanding\./.test(unattested.human ?? "") && /An AI coding agent read/.test(unattested.agent ?? "") && unattested.rows === 4 && !/Project owner attested|OWNER_ATTESTED/.test(unattested.all), { state: unattested.state, human: unattested.human });
   const vReq = page.log.requestDetails.filter((r) => r.url.endsWith("/intel/release_observations.v1.json"));
   check("failure", "F11", "The only figures request is a same-origin GET with no body; nothing external was requested in the whole run",
     vReq.length > 0 && vReq.every((r) => r.method === "GET" && !r.body && /^http:\/\/127\.0\.0\.1:\d+\//.test(r.url)) && external(page.log.requests, "http://127.0.0.1:").length === 0, { vReq: vReq.slice(0, 2), ext: external(page.log.requests, "http://127.0.0.1:") });

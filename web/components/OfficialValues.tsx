@@ -14,6 +14,7 @@ const BLS_DISCLAIMER = "BLS.gov cannot vouch for the data or analyses derived fr
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const longMonth = (period: string) => `${MONTHS[Number(period.slice(5, 7)) - 1]} ${period.slice(0, 4)}`;
+const longDay = (date: string) => `${Number(date.slice(8))} ${longMonth(date)}`;
 const shortMonth = (period: string) => periodLabel({ kind: "month", period });
 
 const ROW: Record<Observation["seasonal_adjustment"], { basis: string; mark: string }> = {
@@ -128,11 +129,13 @@ function Values({ data, desk, nowMs }: { data: ObservationsFile; desk: DeskLoad;
           {fmtUtcShort(r.retrieved_at_utc)} · {daysAgo(r.retrieved_at_utc, nowMs)} · PDF SHA-256 {r.source_document_sha256.slice(0, 12)}…{" "}
           <span data-testid="values-copy-limit">This copy was retrieved after the original release. Nothing here shows it is byte-identical to the file BLS posted that day; “first published” rests on BLS&apos;s dated archive.</span>
         </dd>
-        <dt className="dim">{humanConfirmed(r) ? "Verification" : "Agent verification"}</dt>
+        <dt className="dim">Agent verification</dt>
         <dd data-testid="values-verified">{fmtUtcShort(r.verification.verified_at_utc)} · {daysAgo(r.verification.verified_at_utc, nowMs)}. {r.verification.method} Not continuously checked.</dd>
         <dt className="dim">Human verification</dt>
-        <dd data-testid="values-human" data-human={humanConfirmed(r) ? "recorded" : "outstanding"}>
-          {humanConfirmed(r) ? "Recorded in this file; see the verification line above." : <b className="amber">Outstanding. An agent&apos;s check is not a person&apos;s confirmation.</b>}
+        <dd data-testid="values-human" data-human={humanConfirmed(r) ? "owner-attested" : "outstanding"}>
+          {humanConfirmed(r)
+            ? <><b>Project owner attested — {longDay(r.human_verification.attested_on)}.</b> Covers the four figures, BLS source terms, correction notices and this page as rendered. This is the attestation date, not the release date or the time of each check. It is not BLS, auditor, legal or regulatory approval, and it does not cover later corrections.</>
+            : <b className="amber">Outstanding. An agent&apos;s check is not a person&apos;s confirmation.</b>}
         </dd>
         <dt className="dim">Release desk link</dt>
         <dd data-testid="values-desk-link">{view.event.event_id} is confirmed in the desk; its reference month, document id and official time match this release.</dd>

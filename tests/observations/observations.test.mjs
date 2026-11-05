@@ -217,10 +217,44 @@ test("loader: a missing file is 'none'; other failures are 'invalid'; the only U
   assert.ok(seen.every(([url, init]) => url === "./intel/release_observations.v1.json" && init.cache === "no-store" && init.method === undefined && init.body === undefined));
 });
 
-test("human verification stays outstanding unless the file records a person's confirmation", () => {
-  assert.equal(humanConfirmed(release(FILE)), false);
-  assert.equal(humanConfirmed({ verification: { status: "UNKNOWN_STATUS" } }), false);
-  assert.equal(humanConfirmed({ verification: { status: "MANUALLY_VERIFIED_AGAINST_SOURCE" } }), true);
+test("the shipped file records the owner attestation separately from the agent's verification", () => {
+  assert.equal(parseObservations(FILE).kind, "ok");
+  assert.equal(humanConfirmed(release(FILE)), true);
+  assert.equal(release(FILE).verification.status, "AGENT_VERIFIED_AGAINST_SOURCE");
+});
+
+test("an agent-verified file without an owner attestation is valid and stays outstanding", () => {
+  const f = clone(FILE);
+  delete release(f).human_verification;
+  const r = parseObservations(f);
+  assert.equal(r.kind, "ok");
+  assert.equal(humanConfirmed(release(r.data)), false);
+  assert.equal(linkToDesk(r.data, { kind: "ok", data: DESK }, NOW).kind, "shown");
+});
+
+test("agent verification alone can never count as human confirmation", () => {
+  assert.equal(humanConfirmed({ verification: { status: "AGENT_VERIFIED_AGAINST_SOURCE" } }), false);
+  assert.equal(humanConfirmed({ verification: { status: "MANUALLY_VERIFIED_AGAINST_SOURCE" } }), false);
+  rejects((f) => { release(f).verification.status = "MANUALLY_VERIFIED_AGAINST_SOURCE"; }, /not verified against the source/);
+});
+
+test("an invalid or unsupported attestation refuses the file and is never treated as confirmed", () => {
+  const good = release(FILE).human_verification;
+  const bad = [
+    null, "OWNER_ATTESTED", {},
+    { ...good, status: "AGENT_VERIFIED_AGAINST_SOURCE" },
+    { ...good, status: "HUMAN_VERIFIED" },
+    { ...good, attested_on: "2026-10-14" },
+    { ...good, reviewer_role: "BLS" },
+    { ...good, signature: "NOT_A_SIGNATURE" },
+    { ...good, scope: good.scope.slice(1) },
+    { ...good, scope: [...good.scope].reverse() },
+    { ...good, scope: "M1_NUMERICAL_VALUES" },
+  ];
+  for (const record of bad) {
+    rejects((f) => { release(f).human_verification = record; }, /invalid human verification/);
+    assert.equal(humanConfirmed({ human_verification: record }), false, JSON.stringify(record));
+  }
 });
 
 test("the library holds no figures: values live only in the data file", () => {

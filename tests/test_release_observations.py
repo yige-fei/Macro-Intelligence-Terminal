@@ -98,11 +98,24 @@ class OfficialValues(unittest.TestCase):
         self.assertLessEqual(r["retrieved_at_utc"], r["verification"]["verified_at_utc"])
         self.assertTrue(r["verification"]["method"])
 
-    def test_records_agent_verification_and_no_human_sign_off(self):
+    def test_agent_verification_record_is_intact(self):
         r = self.release
+        self.assertEqual(r["retrieved_at_utc"], "2026-11-03T12:21:13Z")
         self.assertEqual(r["retrieval_method"], "AGENT_FETCH_OF_OFFICIAL_ARCHIVE_PDF")
-        self.assertEqual(r["verification"]["status"], "AGENT_VERIFIED_AGAINST_SOURCE")
-        self.assertIn("No person has confirmed this yet.", r["verification"]["method"])
+        self.assertEqual(r["verification"], {
+            "status": "AGENT_VERIFIED_AGAINST_SOURCE",
+            "verified_at_utc": "2026-11-03T16:15:37Z",
+            "method": "An AI coding agent read Table 1, Table A and the narrative in the official PDF.",
+        })
+        self.assertNotIn("No person has confirmed", self.text)
+
+    def test_owner_attestation_is_a_separate_record(self):
+        self.assertEqual(self.release["human_verification"], {
+            "status": "OWNER_ATTESTED",
+            "attested_on": "2026-11-05",
+            "reviewer_role": "PROJECT_OWNER",
+            "scope": ["M1_NUMERICAL_VALUES", "M2_SOURCE_TERMS", "M3_CORRECTION_NOTICES", "RENDERED_INTERFACE_REVIEW"],
+        })
 
     def test_source_notes_are_verbatim(self):
         notes = [n["text"] for n in self.release["source_notes"]]

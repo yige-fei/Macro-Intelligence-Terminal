@@ -22,8 +22,9 @@ export type ObservationRelease = {
   published: { local_date: string; local_time: string; time_zone: string; source_tz_label: string; utc: string; basis: "SOURCE_STATED_EMBARGO"; excerpt: string };
   reference_period: { kind: "month"; period: string }; source_notes: Array<{ text: string; location: string }>;
   source_document_sha256: string; retrieved_at_utc: string; retrieval_method: string;
-  verification: { status: string; verified_at_utc: string; method: string }; observations: Observation[];
+  verification: { status: string; verified_at_utc: string; method: string }; human_verification?: HumanVerification; observations: Observation[];
 };
+export type HumanVerification = { status: "OWNER_ATTESTED"; attested_on: string; reviewer_role: "PROJECT_OWNER"; scope: string[] };
 export type ObservationsFile = {
   contract: "macro_release_observations"; version: string; data_mode: "SOURCE_DERIVED"; synthetic: false; values_policy: string;
   prepared_at_utc: string; attribution: string[]; releases: ObservationRelease[];
@@ -58,9 +59,9 @@ export const APPROVED_OBSERVATIONS: ReadonlyArray<{ id: string; label: string; m
   { id: "BLS.CPI.2026-09.CPIU_LESS_FOOD_ENERGY.PCT_1M_SA", label: "All items less food and energy", metric: "PERCENT_CHANGE_1M" },
   { id: "BLS.CPI.2026-09.CPIU_LESS_FOOD_ENERGY.PCT_12M_NSA", label: "All items less food and energy", metric: "PERCENT_CHANGE_12M" },
 ];
-const VERIFIED = new Set(["AGENT_VERIFIED_AGAINST_SOURCE", "MANUALLY_VERIFIED_AGAINST_SOURCE"]);
-/** Whether the file records a person's confirmation. Any other status leaves human verification outstanding. */
-export const humanConfirmed = (r: { verification: { status: string } }): boolean => r.verification.status === "MANUALLY_VERIFIED_AGAINST_SOURCE";
+// The one approved owner attestation. Its date is when the owner attested, not the release date or the time of each check.
+const OWNER_ATTESTATION = { status: "OWNER_ATTESTED", attested_on: "2026-11-05", reviewer_role: "PROJECT_OWNER" };
+const ATTESTATION_SCOPE = ["M1_NUMERICAL_VALUES", "M2_SOURCE_TERMS", "M3_CORRECTION_NOTICES", "RENDERED_INTERFACE_REVIEW"];
 
 const VALUE_TEXT = /^-?\d+\.\d$/; // as printed in the release: one decimal place, a string so that it cannot drift through a float
 const UTC_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
@@ -78,6 +79,15 @@ function keyProblem(o: Rec, keys: readonly string[]): string | null {
   return unknown ? `unknown field ${unknown}` : null;
 }
 const same = (o: unknown, want: Rec) => isRec(o) && Object.keys(want).every((k) => o[k] === want[k]);
+
+function attestationProblem(h: unknown): string | null {
+  if (!isRec(h) || keyProblem(h, ["status", "attested_on", "reviewer_role", "scope"]) || !same(h, OWNER_ATTESTATION)) return "invalid human verification record";
+  const scope = h.scope;
+  if (!Array.isArray(scope) || scope.length !== ATTESTATION_SCOPE.length || ATTESTATION_SCOPE.some((s, i) => scope[i] !== s)) return "invalid human verification scope";
+  return null;
+}
+/** True only for the approved owner attestation. Agent verification never counts, and without this record human verification is outstanding. */
+export const humanConfirmed = <R extends { human_verification?: unknown }>(r: R): r is R & { human_verification: HumanVerification } => attestationProblem(r.human_verification) === null;
 
 function observationProblem(o: unknown, spec: (typeof APPROVED_OBSERVATIONS)[number]): string | null {
   if (!isRec(o)) return "not an object";
@@ -99,7 +109,7 @@ function observationProblem(o: unknown, spec: (typeof APPROVED_OBSERVATIONS)[num
 
 function releaseProblem(r: unknown): string | null {
   if (!isRec(r)) return "release is not an object";
-  const keys = keyProblem(r, ["release_event_id", "publisher_code", "publisher_name", "indicator", "document_id", "document_title", "document_url", "document_pdf_url", "published", "reference_period", "source_notes", "source_document_sha256", "retrieved_at_utc", "retrieval_method", "verification", "observations"]);
+  const keys = keyProblem(r, ["release_event_id", "publisher_code", "publisher_name", "indicator", "document_id", "document_title", "document_url", "document_pdf_url", "published", "reference_period", "source_notes", "source_document_sha256", "retrieved_at_utc", "retrieval_method", "verification", "observations", ...("human_verification" in r ? ["human_verification"] : [])]);
   if (keys) return keys;
   if (r.release_event_id !== EXPECTED.event_id) return `unsupported release ${String(r.release_event_id)}`;
   if (r.publisher_code !== EXPECTED.publisher_code || r.publisher_name !== EXPECTED.publisher_name || r.indicator !== EXPECTED.indicator) return "wrong publisher or indicator";
@@ -114,8 +124,12 @@ function releaseProblem(r: unknown): string | null {
   if (!isUtc(r.retrieved_at_utc) || Date.parse(r.retrieved_at_utc) < Date.parse(EXPECTED.utc)) return "retrieval time is missing or before publication";
   if (!isText(r.retrieval_method)) return "missing retrieval method";
   const v = r.verification;
-  if (!isRec(v) || keyProblem(v, ["status", "verified_at_utc", "method"]) || !VERIFIED.has(String(v.status)) || !isText(v.method)) return "not verified against the source";
+  if (!isRec(v) || keyProblem(v, ["status", "verified_at_utc", "method"]) || v.status !== "AGENT_VERIFIED_AGAINST_SOURCE" || !isText(v.method)) return "not verified against the source";
   if (!isUtc(v.verified_at_utc) || Date.parse(v.verified_at_utc) < Date.parse(r.retrieved_at_utc)) return "verification time is missing or before retrieval";
+  if ("human_verification" in r) {
+    const human = attestationProblem(r.human_verification);
+    if (human) return human;
+  }
   const obs = r.observations;
   if (!Array.isArray(obs)) return "observations missing";
   const ids = obs.map((o) => (isRec(o) ? o.observation_id : undefined));

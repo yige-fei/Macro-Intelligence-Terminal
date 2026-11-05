@@ -149,7 +149,7 @@ Every served file must carry `"synthetic": true`. Research files must also carry
   - **Original release:** 14 October 2026, from the release's embargo line.
   - **Archived copy retrieved:** 3 November 2026. Nothing shows this copy is byte-identical to the file BLS posted on release day; "first published" rests on BLS's dated archive.
   - **Agent verification:** an AI coding agent checked the figures against that copy.
-  - **Human verification:** outstanding. The file says no person has confirmed the figures, and that wording changes only once one has.
+  - **Human verification:** the project owner attested on 5 November 2026 to the four figures, BLS source terms, correction notices and the rendered page. That's the attestation date, not the time of each check. It isn't BLS, auditor, legal or regulatory approval, and it doesn't cover later corrections. It's a separate record: without it the tab says human verification is outstanding, and a malformed one refuses the whole file.
 - Nothing fetches or refreshes this file.
 
 **When a figure is shown.** `lib/releaseObservations.ts` allows only this release and these four definitions. Any fault refuses the whole file: a missing or unknown field, a duplicate, a malformed value, or a different URL, table, row, column or seasonal basis. It then requires the separately loaded desk event `BLS.CPI.2026-09` to be confirmed, with no unresolved conflict and the same reference month, document id and official time. If they disagree, neither source wins: the figures are withheld and the reason is shown.

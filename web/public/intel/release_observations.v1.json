@@ -36,7 +36,13 @@
       "verification": {
         "status": "AGENT_VERIFIED_AGAINST_SOURCE",
         "verified_at_utc": "2026-11-03T16:15:37Z",
-        "method": "An AI coding agent read Table 1, Table A and the narrative in the official PDF. No person has confirmed this yet."
+        "method": "An AI coding agent read Table 1, Table A and the narrative in the official PDF."
+      },
+      "human_verification": {
+        "status": "OWNER_ATTESTED",
+        "attested_on": "2026-11-05",
+        "reviewer_role": "PROJECT_OWNER",
+        "scope": ["M1_NUMERICAL_VALUES", "M2_SOURCE_TERMS", "M3_CORRECTION_NOTICES", "RENDERED_INTERFACE_REVIEW"]
       },
       "observations": [
         {
